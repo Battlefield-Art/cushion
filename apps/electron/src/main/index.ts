@@ -86,6 +86,19 @@ function createWindow() {
     return { action: 'allow' };
   });
 
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    const isCloseTabShortcut =
+      input.type === 'keyDown' &&
+      input.key.toLowerCase() === 'w' &&
+      (input.control || input.meta) &&
+      !input.alt;
+
+    if (!isCloseTabShortcut) return;
+
+    event.preventDefault();
+    mainWindow?.webContents.send('shortcut:close-current-tab');
+  });
+
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
     if (pendingOpenPath) {

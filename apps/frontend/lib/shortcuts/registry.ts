@@ -49,6 +49,14 @@ export const shortcutRegistry = [
     defaultBindings: ['Mod+Shift+N'],
   },
   {
+    id: 'app.tab.close',
+    label: 'Close current tab',
+    description: 'Close the currently active editor tab.',
+    scope: 'app',
+    category: 'App',
+    defaultBindings: ['Mod+W'],
+  },
+  {
     id: 'app.overlay.close',
     label: 'Close overlays',
     description: 'Close modals, dialogs, and popovers.',
