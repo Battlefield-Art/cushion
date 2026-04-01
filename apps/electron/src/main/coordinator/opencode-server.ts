@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { app } from 'electron';
 import net from 'node:net';
 import path from 'node:path';
 
@@ -17,8 +18,31 @@ function isPortListening(port: number): Promise<boolean> {
 }
 
 function getOpenCodeBin(): string {
-  const binDir = path.join(__dirname, '../../node_modules/.bin');
-  return path.join(binDir, process.platform === 'win32' ? 'opencode.exe' : 'opencode');
+  const base = app.isPackaged
+    ? __dirname.replace('app.asar', 'app.asar.unpacked')
+    : __dirname;
+  const modulesDir = path.join(base, '../../node_modules');
+
+  const platformMap: Record<string, string> = { darwin: 'darwin', linux: 'linux', win32: 'windows' };
+  const platform = platformMap[process.platform] || process.platform;
+  const arch = process.arch;
+  const binary = platform === 'windows' ? 'opencode.exe' : 'opencode';
+
+  const candidates = [
+    `opencode-${platform}-${arch}-baseline`,
+    `opencode-${platform}-${arch}`,
+    `opencode-${platform}-${arch}-baseline-musl`,
+    `opencode-${platform}-${arch}-musl`,
+  ];
+
+  for (const name of candidates) {
+    const candidate = path.join(modulesDir, name, 'bin', binary);
+    try { require('fs').accessSync(candidate); return candidate; } catch {}
+  }
+
+  const fallback = path.join(modulesDir, '.bin', binary);
+  console.error(`[OpenCode] Binary not found. Tried: ${candidates.join(', ')}. Falling back to ${fallback}`);
+  return fallback;
 }
 
 export async function startOpenCodeServer(): Promise<void> {

@@ -2,6 +2,8 @@
 
 A local-first markdown workspace with a built-in AI sidebar. Cursor, but for your notes and documents.
 
+![Cushion](.github/images/cushion-preview.png)
+
 ## Why?
 
 I liked Obsidian. I liked Cursor. But I kept switching between the two and never fully settled in either. Obsidian's markdown editing felt great, but it had no AI chat that felt native to me, and honestly I spent way too much time finding the best theme and best plugins. Cursor, on the other hand, had the AI sidebar I wanted, but it's a code editor and writing long-form text in it was exhausting.
@@ -47,30 +49,19 @@ bun run dev:electron
 bun run package:electron
 ```
 
-## Project Structure
+## Roadmap
 
-```
-cushion/
-  apps/
-    frontend/       Vite + React 19 + Tailwind + CodeMirror 6
-    electron/       Electron shell + coordinator (file I/O, AI server, dictation)
-  packages/
-    types/          Shared TypeScript types
-    tsconfig/       Shared TS configs
-```
+- [ ] CSV and XLSX file support
+- [ ] Canvas for connecting notes visually
+- [ ] Split page view
+- [ ] Rich text formatting inside tables (bold, italic, links, etc.)
+- [ ] Floating toolbar for quick styling (Notion-style)
+- [ ] Document export via Pandoc (Word, LaTeX, HTML, etc.)
+- [ ] LLM post-processing for dictation in the AI chat bar, optimized for code
 
-## Tech Stack
+## Platform Support
 
-| Layer     | Tech                                          |
-| --------- | --------------------------------------------- |
-| Frontend  | React 19, Tailwind 3, CodeMirror 6, Zustand 5 |
-| Desktop   | Electron 35                                   |
-| AI        | OpenCode (via `@opencode-ai/sdk`)             |
-| Dictation | Sherpa ONNX (local)                           |
-| Drawings  | Excalidraw                                    |
-| PDF       | pdfjs-dist                                    |
-| Math      | KaTeX                                         |
-| Build     | Vite, Bun                                     |
+Fully tested on **Windows** and **Linux** (Ubuntu). Linux may have small visual quirks, if you run into anything please open an issue. macOS builds are possible but untested.
 
 ## Status
 

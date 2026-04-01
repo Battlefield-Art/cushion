@@ -1,5 +1,8 @@
 export const isElectron = !!window.electronAPI;
-export const noDragStyle = isElectron ? { WebkitAppRegion: 'no-drag' } as React.CSSProperties : undefined;
+export const isLinux = window.electronAPI?.platform === 'linux';
+export const hasCustomTitlebar = isElectron && !isLinux;
+export const needsCustomWindowControls = false;
+export const noDragStyle = hasCustomTitlebar ? { WebkitAppRegion: 'no-drag' } as React.CSSProperties : undefined;
 
 interface BuildEditorBreadcrumbInput {
   projectName: string | null;

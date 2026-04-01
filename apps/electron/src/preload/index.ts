@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  platform: process.platform,
+
   coordinatorInvoke: (method: string, params: unknown) =>
     ipcRenderer.invoke(`coordinator:${method}`, params),
   onCoordinatorNotification: (channel: string, callback: (...args: any[]) => void) => {
@@ -12,6 +14,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   updateTitleBarTheme: (colors: { color: string; symbolColor: string }) =>
     ipcRenderer.invoke('titlebar:update-theme', colors),
+
+  windowMinimize: () => ipcRenderer.invoke('window:minimize'),
+  windowMaximize: () => ipcRenderer.invoke('window:maximize'),
+  windowClose: () => ipcRenderer.invoke('window:close'),
 
   notifyWorkspaceOpened: (path: string) => ipcRenderer.invoke('workspace:opened', path),
 

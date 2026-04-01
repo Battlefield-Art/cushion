@@ -389,11 +389,12 @@ function PdfViewerInner({
   }, [filePath]);
 
   useEffect(() => {
-    const existingLink = document.querySelector('link[href="/pdfjs/pdf_viewer.css"]');
+    const cssHref = `${import.meta.env.BASE_URL}pdfjs/pdf_viewer.css`;
+    const existingLink = document.querySelector(`link[href="${cssHref}"]`);
     if (!existingLink) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = '/pdfjs/pdf_viewer.css';
+      link.href = cssHref;
       document.head.appendChild(link);
     }
   }, []);
@@ -433,7 +434,7 @@ function PdfViewerInner({
           return;
         }
 
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdfjs/pdf.worker.min.mjs`;
 
         if (progressiveReadChunk) {
           const requestedRangeChunkSize = progressiveRangeChunkSize ?? DEFAULT_PDF_RANGE_CHUNK_SIZE;

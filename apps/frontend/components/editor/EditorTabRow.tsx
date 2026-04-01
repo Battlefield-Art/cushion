@@ -1,9 +1,10 @@
 
 import type { TabState } from '@cushion/types';
-import { PanelLeft, PanelRight } from 'lucide-react';
+import { Minus, Square, X, PanelLeft, PanelRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EditorTabs } from './EditorTabs';
-import { isElectron, noDragStyle } from './editor-path';
+import { hasCustomTitlebar, needsCustomWindowControls, noDragStyle } from './editor-path';
+import logoSvg from '/logo.svg?url';
 
 interface EditorTabRowProps {
   sidebarOpen?: boolean;
@@ -43,11 +44,11 @@ export function EditorTabRow({
       className={cn(
         'relative flex items-center bg-tab-container min-h-[40px] flex-shrink-0',
         "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-border after:content-['']",
-        isElectron && 'select-none'
+        hasCustomTitlebar && 'select-none'
       )}
-      style={isElectron ? {
+      style={hasCustomTitlebar ? {
         WebkitAppRegion: 'drag',
-        paddingRight: rightPanelOpen ? undefined : 140,
+        paddingRight: (!needsCustomWindowControls && !rightPanelOpen) ? 140 : undefined,
       } as React.CSSProperties : undefined}
     >
       <div
@@ -69,7 +70,7 @@ export function EditorTabRow({
             title="Open workspace"
             aria-label="Open workspace"
           >
-            <img src="/logo.svg" alt="Cushion" className="h-7 w-7" />
+            <img src={logoSvg} alt="Cushion" className="h-7 w-7" />
           </button>
         )}
         {onToggleSidebar && (
@@ -136,6 +137,32 @@ export function EditorTabRow({
           className="flex-shrink-0 self-stretch border-l border-border"
           style={{ width: rightPanelWidth }}
         />
+      )}
+
+      {needsCustomWindowControls && (
+        <div className="flex items-center flex-shrink-0 ml-auto" style={noDragStyle}>
+          <button
+            onClick={() => window.electronAPI?.windowMinimize()}
+            className="h-10 w-12 flex items-center justify-center text-muted-foreground hover:bg-muted/30 transition-colors"
+            aria-label="Minimize"
+          >
+            <Minus size={16} strokeWidth={1.5} />
+          </button>
+          <button
+            onClick={() => window.electronAPI?.windowMaximize()}
+            className="h-10 w-12 flex items-center justify-center text-muted-foreground hover:bg-muted/30 transition-colors"
+            aria-label="Maximize"
+          >
+            <Square size={14} strokeWidth={1.5} />
+          </button>
+          <button
+            onClick={() => window.electronAPI?.windowClose()}
+            className="h-10 w-12 flex items-center justify-center text-muted-foreground hover:text-white hover:bg-red-500 transition-colors"
+            aria-label="Close"
+          >
+            <X size={16} strokeWidth={1.5} />
+          </button>
+        </div>
       )}
     </div>
   );
