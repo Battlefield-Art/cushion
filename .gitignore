@@ -38,7 +38,6 @@ nul
 
 # Testing
 coverage/
-scripts/
 
 # Cache
 .cache/
