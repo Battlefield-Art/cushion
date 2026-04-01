@@ -91,7 +91,8 @@ function createWindow() {
       input.type === 'keyDown' &&
       input.key.toLowerCase() === 'w' &&
       (input.control || input.meta) &&
-      !input.alt;
+      !input.alt &&
+      !input.shift;
 
     if (!isCloseTabShortcut) return;
 
