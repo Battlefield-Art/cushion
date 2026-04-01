@@ -25,6 +25,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('open-workspace', (_event, path) => callback(path));
   },
 
+  onCloseCurrentTabShortcut: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('shortcut:close-current-tab', handler);
+    return () => ipcRenderer.removeListener('shortcut:close-current-tab', handler);
+  },
+
   exportPdf: (data: { html: string; title: string; options: unknown }) =>
     ipcRenderer.invoke('export:pdf', data),
 
