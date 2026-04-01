@@ -7,7 +7,7 @@ import type { ViewProps } from '@/lib/view-registry';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 
 if (typeof window !== 'undefined') {
-  (window as any).EXCALIDRAW_ASSET_PATH = '/excalidraw-assets/';
+  (window as any).EXCALIDRAW_ASSET_PATH = `${import.meta.env.BASE_URL}excalidraw-assets/`;
 }
 
 const DEFAULT_SCENE = {
