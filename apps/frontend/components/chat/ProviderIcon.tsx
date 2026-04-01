@@ -2,7 +2,7 @@
 import type { SVGProps } from 'react';
 import type { IconName } from './provider-icons/types';
 
-const sprite = '/provider-icons/sprite.svg';
+const sprite = `${import.meta.env.BASE_URL}provider-icons/sprite.svg`;
 
 export type ProviderIconProps = Omit<SVGProps<SVGSVGElement>, 'id'> & {
   id: IconName;

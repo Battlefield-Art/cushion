@@ -53,7 +53,7 @@ async function loadPdfDocument(src: string): Promise<any> {
 
   const promise = (async () => {
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdfjs/pdf.worker.min.mjs`;
 
     let data: { data: Uint8Array } | { url: string };
     if (isRemoteSrc(src)) {
