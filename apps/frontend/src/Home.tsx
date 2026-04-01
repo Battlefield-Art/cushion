@@ -17,7 +17,7 @@ import { ModalOverlay } from '@/components/ui/ModalOverlay';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { TrashViewerPanel } from '@/components/workspace/TrashViewerPanel';
 import { useFileTree } from '@/hooks/useFileTree';
-import { matchShortcut, useShortcutBindings } from '@/lib/shortcuts';
+import { matchShortcut, normalizeShortcutForConflict, useShortcutBindings } from '@/lib/shortcuts';
 import { useAppearanceStore } from '@/stores/appearanceStore';
 import { useDictationStore } from '@/stores/dictationStore';
 import { init as initFocusTracker, destroy as destroyFocusTracker } from '@/lib/focus-tracker';
@@ -33,6 +33,7 @@ const APP_SHORTCUT_IDS = [
   'app.quickSwitcher.open',
   'app.note.new',
   'app.chat.newSession',
+  'app.tab.close',
   'app.overlay.close',
   'app.focusMode.exit',
 ] as const;
@@ -387,6 +388,12 @@ export default function Home() {
     tabs.forEach((t) => handleCloseTab(t.id));
   }, [tabs, handleCloseTab]);
 
+  const handleCloseActiveTab = useCallback(() => {
+    const active = tabs.find((t) => t.isActive) || tabs[0];
+    if (!active) return;
+    handleCloseTab(active.id);
+  }, [tabs, handleCloseTab]);
+
   const isSidebarHidden = sidebarCollapsed || focusModeEnabled;
 
   useEffect(() => {
@@ -453,6 +460,18 @@ export default function Home() {
       });
     });
   }, [openWorkspace]);
+
+  useEffect(() => {
+    if (!window.electronAPI?.onCloseCurrentTabShortcut) return;
+    return window.electronAPI.onCloseCurrentTabShortcut(() => {
+      const closeTabBindings = appShortcuts['app.tab.close'] ?? [];
+      const hasModWBinding = closeTabBindings.some(
+        (binding) => normalizeShortcutForConflict(binding) === 'Mod+W'
+      );
+      if (!hasModWBinding) return;
+      handleCloseActiveTab();
+    });
+  }, [appShortcuts, handleCloseActiveTab]);
 
   if (!client) {
     return (
