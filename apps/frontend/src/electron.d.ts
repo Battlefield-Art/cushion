@@ -9,7 +9,6 @@ export interface ElectronAPI {
   notifyWorkspaceOpened: (path: string) => Promise<void>;
   onOpenWorkspace: (callback: (path: string) => void) => void;
   onCloseCurrentTabShortcut: (callback: () => void) => () => void;
-  openOAuthWindow: (authUrl: string) => Promise<string | null>;
   exportPdf: (data: {
     html: string;
     title: string;
@@ -19,6 +18,6 @@ export interface ElectronAPI {
 
 declare global {
   interface Window {
-    electronAPI?: ElectronAPI;
+    electronAPI: ElectronAPI;
   }
 }

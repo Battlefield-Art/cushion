@@ -142,21 +142,21 @@ export function EditorTabRow({
       {needsCustomWindowControls && (
         <div className="flex items-center flex-shrink-0 ml-auto" style={noDragStyle}>
           <button
-            onClick={() => window.electronAPI?.windowMinimize()}
+            onClick={() => window.electronAPI.windowMinimize()}
             className="h-10 w-12 flex items-center justify-center text-muted-foreground hover:bg-muted/30 transition-colors"
             aria-label="Minimize"
           >
             <Minus size={16} strokeWidth={1.5} />
           </button>
           <button
-            onClick={() => window.electronAPI?.windowMaximize()}
+            onClick={() => window.electronAPI.windowMaximize()}
             className="h-10 w-12 flex items-center justify-center text-muted-foreground hover:bg-muted/30 transition-colors"
             aria-label="Maximize"
           >
             <Square size={14} strokeWidth={1.5} />
           </button>
           <button
-            onClick={() => window.electronAPI?.windowClose()}
+            onClick={() => window.electronAPI.windowClose()}
             className="h-10 w-12 flex items-center justify-center text-muted-foreground hover:text-white hover:bg-red-500 transition-colors"
             aria-label="Close"
           >

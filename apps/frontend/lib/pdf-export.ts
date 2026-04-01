@@ -49,7 +49,7 @@ export async function exportToPdf(
   options: PdfExportOptions,
 ): Promise<void> {
   const html = buildPdfHtml(markdown, title, options);
-  await window.electronAPI!.exportPdf({ html, title, options });
+  await window.electronAPI.exportPdf({ html, title, options });
 }
 
 function slugify(text: string): string {

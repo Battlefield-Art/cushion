@@ -102,33 +102,8 @@ export function McpsPanel() {
     authAbortRef.current = abort;
 
     try {
-      if (window.electronAPI?.openOAuthWindow) {
-        // Electron: 2-step flow — start() gets the URL, BrowserWindow intercepts the redirect
-        const startResult = await ctx.client.mcp.auth.start({ name, directory: ctx.directory });
-        if (abort.signal.aborted) return;
-
-        const authUrl = startResult?.data?.authorizationUrl;
-        if (!authUrl) {
-          showToast({ variant: 'success', title: 'Already authenticated', description: `${name} is connected`, duration: 4000 });
-          await fetchMcps();
-          return;
-        }
-
-        const code = await window.electronAPI.openOAuthWindow(authUrl);
-        if (abort.signal.aborted) return;
-
-        if (!code) {
-          showToast({ variant: 'error', title: 'Auth cancelled', description: 'OAuth window was closed', duration: 4000 });
-          return;
-        }
-
-        await ctx.client.mcp.auth.callback({ name, directory: ctx.directory, code });
-        if (abort.signal.aborted) return;
-      } else {
-        // Browser: use the blocking authenticate() call (opens browser server-side)
-        await ctx.client.mcp.auth.authenticate({ name, directory: ctx.directory });
-        if (abort.signal.aborted) return;
-      }
+      await ctx.client.mcp.auth.authenticate({ name, directory: ctx.directory });
+      if (abort.signal.aborted) return;
 
       showToast({ variant: 'success', title: 'Authenticated', description: `${name} is now connected`, duration: 4000 });
       await fetchMcps();

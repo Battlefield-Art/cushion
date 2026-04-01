@@ -184,7 +184,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
 
             get().addRecentProject();
 
-            window.electronAPI?.notifyWorkspaceOpened?.(projectPath);
+            window.electronAPI.notifyWorkspaceOpened(projectPath);
           } catch (error) {
             const errorMessage =
               error instanceof Error ? error.message : 'Unknown error';
