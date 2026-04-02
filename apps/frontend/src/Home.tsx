@@ -74,7 +74,7 @@ function applyAppearanceToDOM(resolvedTheme: 'light' | 'dark', accentColor: stri
     html.style.removeProperty('--accent-l');
   }
 
-  window.electronAPI?.updateTitleBarTheme(TITLEBAR_OVERLAY_COLORS[resolvedTheme]);
+  window.electronAPI.updateTitleBarTheme(TITLEBAR_OVERLAY_COLORS[resolvedTheme]);
 }
 
 function ToastBridge() {
@@ -453,7 +453,6 @@ export default function Home() {
   }, [client, openFile, fetchFileTree]);
 
   useEffect(() => {
-    if (!window.electronAPI?.onOpenWorkspace) return;
     window.electronAPI.onOpenWorkspace((path) => {
       openWorkspace(path).catch((err) => {
         console.error('[Home] Failed to open workspace from OS:', err);
@@ -462,7 +461,6 @@ export default function Home() {
   }, [openWorkspace]);
 
   useEffect(() => {
-    if (!window.electronAPI?.onCloseCurrentTabShortcut) return;
     return window.electronAPI.onCloseCurrentTabShortcut(() => {
       const closeTabBindings = appShortcuts['app.tab.close'] ?? [];
       const hasModWBinding = closeTabBindings.some(

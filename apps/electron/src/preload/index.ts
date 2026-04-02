@@ -32,7 +32,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   exportPdf: (data: { html: string; title: string; options: unknown }) =>
     ipcRenderer.invoke('export:pdf', data),
-
-  openOAuthWindow: (authUrl: string) =>
-    ipcRenderer.invoke('oauth:openWindow', authUrl) as Promise<string | null>,
 });

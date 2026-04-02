@@ -227,7 +227,7 @@ export const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>(
 
   const handleExternalDrop = useCallback(async (files: FileList, targetDir: string) => {
     if (!client) return;
-    if (!window.electronAPI) return; // Electron-only
+
 
     const allowedExts = new Set(preferences.allowedExtensions.map((e: string) => e.toLowerCase()));
     const dirsToRefresh = new Set<string>();

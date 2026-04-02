@@ -131,7 +131,7 @@ export const useDictationStore = create<DictationState>()(
       coordinatorClient = client;
 
       if (serverStatusCleanup) serverStatusCleanup();
-      serverStatusCleanup = window.electronAPI!.onCoordinatorNotification(
+      serverStatusCleanup = window.electronAPI.onCoordinatorNotification(
         'dictation/server-status-changed',
         (data: DictationServerInfo) => {
           set({ serverStatus: data.status });
@@ -139,7 +139,7 @@ export const useDictationStore = create<DictationState>()(
       );
 
       if (downloadProgressCleanup) downloadProgressCleanup();
-      downloadProgressCleanup = window.electronAPI!.onCoordinatorNotification(
+      downloadProgressCleanup = window.electronAPI.onCoordinatorNotification(
         'dictation/download-progress',
         (data: DownloadProgress) => {
           set({ downloadProgress: data });
@@ -147,7 +147,7 @@ export const useDictationStore = create<DictationState>()(
       );
 
       if (downloadCompleteCleanup) downloadCompleteCleanup();
-      downloadCompleteCleanup = window.electronAPI!.onCoordinatorNotification(
+      downloadCompleteCleanup = window.electronAPI.onCoordinatorNotification(
         'dictation/download-complete',
         () => {
           set({ downloadProgress: null });
@@ -156,7 +156,7 @@ export const useDictationStore = create<DictationState>()(
       );
 
       if (downloadErrorCleanup) downloadErrorCleanup();
-      downloadErrorCleanup = window.electronAPI!.onCoordinatorNotification(
+      downloadErrorCleanup = window.electronAPI.onCoordinatorNotification(
         'dictation/download-error',
         () => {
           set({ downloadProgress: null });
@@ -164,7 +164,7 @@ export const useDictationStore = create<DictationState>()(
       );
 
       if (hotkeyPressedCleanup) hotkeyPressedCleanup();
-      hotkeyPressedCleanup = window.electronAPI!.onCoordinatorNotification(
+      hotkeyPressedCleanup = window.electronAPI.onCoordinatorNotification(
         'dictation/hotkey-pressed',
         () => {
           get().toggleRecording();
@@ -172,7 +172,7 @@ export const useDictationStore = create<DictationState>()(
       );
 
       if (hotkeyFailedCleanup) hotkeyFailedCleanup();
-      hotkeyFailedCleanup = window.electronAPI!.onCoordinatorNotification(
+      hotkeyFailedCleanup = window.electronAPI.onCoordinatorNotification(
         'dictation/hotkey-registration-failed',
         (data: { hotkey: string; error: string }) => {
           showGlobalToast({ description: `Hotkey registration failed: ${data.error}`, variant: 'error' });
@@ -180,7 +180,7 @@ export const useDictationStore = create<DictationState>()(
       );
 
       if (gpuDownloadProgressCleanup) gpuDownloadProgressCleanup();
-      gpuDownloadProgressCleanup = window.electronAPI!.onCoordinatorNotification(
+      gpuDownloadProgressCleanup = window.electronAPI.onCoordinatorNotification(
         'dictation/gpu-binary-download-progress',
         (data: GpuDownloadProgress) => {
           set({ gpuBinaryDownloadProgress: data });
@@ -188,7 +188,7 @@ export const useDictationStore = create<DictationState>()(
       );
 
       if (gpuDownloadCompleteCleanup) gpuDownloadCompleteCleanup();
-      gpuDownloadCompleteCleanup = window.electronAPI!.onCoordinatorNotification(
+      gpuDownloadCompleteCleanup = window.electronAPI.onCoordinatorNotification(
         'dictation/gpu-binary-download-complete',
         () => {
           set({ gpuBinaryDownloading: false, gpuBinaryDownloaded: true, gpuBinaryDownloadProgress: null });
@@ -196,7 +196,7 @@ export const useDictationStore = create<DictationState>()(
       );
 
       if (gpuDownloadErrorCleanup) gpuDownloadErrorCleanup();
-      gpuDownloadErrorCleanup = window.electronAPI!.onCoordinatorNotification(
+      gpuDownloadErrorCleanup = window.electronAPI.onCoordinatorNotification(
         'dictation/gpu-binary-download-error',
         (data: { error: string }) => {
           set({ gpuBinaryDownloading: false, gpuBinaryDownloadProgress: null });

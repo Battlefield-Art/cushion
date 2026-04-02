@@ -12,7 +12,7 @@ export class CoordinatorClient {
   private _cleanups: Array<() => void> = [];
 
   connect(): Promise<void> {
-    const api = window.electronAPI!;
+    const api = window.electronAPI;
 
     this._cleanups.push(
       api.onCoordinatorNotification('workspace/filesChanged', (data: { changes: FileChange[] }) => {
@@ -50,7 +50,7 @@ export class CoordinatorClient {
     method: M,
     ...args: RPCParams<M> extends void ? [] : [RPCParams<M>]
   ): Promise<RPCResult<M>> {
-    return window.electronAPI!.coordinatorInvoke(method, args[0] ?? {});
+    return window.electronAPI.coordinatorInvoke(method, args[0] ?? {});
   }
 
   openWorkspace(projectPath: string) {
