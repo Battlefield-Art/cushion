@@ -65,9 +65,9 @@ interface DictationState {
 }
 
 let coordinatorClient: CoordinatorClient | null = null;
-let mediaRecorder: MediaRecorder | null = null;
-let audioChunks: Blob[] = [];
 let mediaStream: MediaStream | null = null;
+let audioContext: AudioContext | null = null;
+let workletNode: AudioWorkletNode | null = null;
 let insertTextCallback: ((text: string) => { from: number; to: number } | void) | null = null;
 let getNoteContextCallback: (() => string) | null = null;
 let onTextInsertedCallback: ((originalText: string, from: number, to: number) => void) | null = null;
@@ -96,11 +96,14 @@ export function setOnTextInsertedCallback(cb: ((originalText: string, from: numb
 }
 
 function cleanupMedia() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
+  if (workletNode) {
+    try { workletNode.disconnect(); } catch {}
+    workletNode = null;
   }
-  mediaRecorder = null;
-  audioChunks = [];
+  if (audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
+  }
   if (mediaStream) {
     mediaStream.getTracks().forEach((t) => t.stop());
     mediaStream = null;
@@ -430,17 +433,16 @@ export const useDictationStore = create<DictationState>()(
         return;
       }
 
-      audioChunks = [];
-      mediaRecorder = new MediaRecorder(mediaStream);
+      audioContext = new AudioContext();
+      const nativeSampleRate = audioContext.sampleRate;
+      await audioContext.audioWorklet.addModule('/pcm-recorder-worklet.js');
+      const source = audioContext.createMediaStreamSource(mediaStream);
+      workletNode = new AudioWorkletNode(audioContext, 'pcm-recorder-processor', {
+        processorOptions: { sampleRate: nativeSampleRate },
+      });
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunks.push(e.data);
-      };
-
-      mediaRecorder.onstop = async () => {
+      workletNode.port.onmessage = async (e: MessageEvent<{ samples: ArrayBuffer }>) => {
         set({ status: 'transcribing' });
-
-        const blob = new Blob(audioChunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
         cleanupMedia();
 
         if (!coordinatorClient) {
@@ -449,9 +451,9 @@ export const useDictationStore = create<DictationState>()(
         }
 
         try {
-          const arrayBuffer = await blob.arrayBuffer();
           const result = await coordinatorClient.call('dictation/transcribe', {
-            audioBuffer: arrayBuffer,
+            samples: e.data.samples,
+            sampleRate: 16000,
           });
           const rawText = result.text?.trim();
 
@@ -503,15 +505,16 @@ export const useDictationStore = create<DictationState>()(
         }
       };
 
-      mediaRecorder.start();
+      source.connect(workletNode);
+      workletNode.connect(audioContext.destination);
       set({ status: 'recording', error: null });
       playStartCue();
     },
 
     stopRecording: () => {
       playStopCue();
-      if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
+      if (workletNode) {
+        workletNode.port.postMessage('stop');
       }
     },
 

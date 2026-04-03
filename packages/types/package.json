@@ -2,6 +2,7 @@
   "name": "@cushion/types",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Shared type definitions for Cushion workspace, file, terminal, and document tracking",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

@@ -222,7 +222,7 @@ export interface RPCMethodMap {
     result: DictationServerInfo;
   };
   'dictation/transcribe': {
-    params: { audioBuffer: ArrayBuffer };
+    params: { samples: ArrayBuffer; sampleRate: number };
     result: TranscriptionResult;
   };
   'dictation/ensure-binary': {

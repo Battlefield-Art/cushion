@@ -1,0 +1,58 @@
+Third-Party Licenses
+====================
+
+Cushion includes or depends on the following third-party software:
+
+
+pdfjs-dist
+----------
+License: Apache License 2.0
+URL: https://github.com/nicolo-ribaudo/pdfjs-dist
+Used for: PDF rendering in the editor
+
+Apache License 2.0 requires:
+- Include a copy of the license (bundled in public/pdfjs/LICENSE)
+- State changes if the source was modified (we use it unmodified)
+
+
+highlight.js
+-------------
+License: BSD 3-Clause
+URL: https://github.com/highlightjs/highlight.js
+Used for: Syntax highlighting in code blocks
+
+BSD 3-Clause requires:
+- Retain copyright notice in source and binary distributions
+
+
+@atlaskit/pragmatic-drag-and-drop
+----------------------------------
+License: Apache License 2.0
+URL: https://github.com/atlassian/pragmatic-drag-and-drop
+Used for: Drag-and-drop in the file tree and tab bar
+
+Apache License 2.0 requires:
+- Include a copy of the license
+- State changes if the source was modified (we use it unmodified)
+
+
+sherpa-onnx (runtime binary)
+-----------------------------
+License: Apache License 2.0
+URL: https://github.com/k2-fsa/sherpa-onnx
+Used for: Local speech-to-text (dictation feature)
+Note: The sherpa-onnx binary is downloaded at runtime, not bundled in the source.
+
+Apache License 2.0 requires:
+- Include a copy of the license
+- State changes if the source was modified (we use it unmodified)
+
+
+opencode-ai
+------------
+License: MIT
+URL: https://github.com/nicepkg/opencode
+Used for: AI chat integration
+
+MIT License requires:
+- Include copyright notice and license text
