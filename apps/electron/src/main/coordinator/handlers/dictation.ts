@@ -58,13 +58,13 @@ const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
 
 export async function handleDictationTranscribe(
   sherpaManager: SherpaManager,
-  params: { audioBuffer: ArrayBuffer },
+  params: { samples: ArrayBuffer; sampleRate: number },
 ) {
-  if (params.audioBuffer.byteLength > MAX_AUDIO_BYTES) {
-    throw new Error(`Audio buffer too large: ${Math.round(params.audioBuffer.byteLength / 1024 / 1024)}MB (max ${MAX_AUDIO_BYTES / 1024 / 1024}MB)`);
+  if (params.samples.byteLength > MAX_AUDIO_BYTES) {
+    throw new Error(`Audio buffer too large: ${Math.round(params.samples.byteLength / 1024 / 1024)}MB (max ${MAX_AUDIO_BYTES / 1024 / 1024}MB)`);
   }
-  const buffer = Buffer.from(params.audioBuffer);
-  return sherpaManager.transcribe(buffer);
+  const samplesBuffer = Buffer.from(params.samples);
+  return sherpaManager.transcribe(samplesBuffer, params.sampleRate);
 }
 
 export async function handleDictationEnsureBinary(binaryManager: SherpaBinaryManager) {
@@ -91,11 +91,18 @@ export async function handleDictationConfigWrite(
   hotkeyManager: HotkeyManager,
   params: { config: DictationConfig },
 ) {
+  const previous = await dictationConfig.read();
   await dictationConfig.write(params.config);
-  if (params.config.enabled && params.config.hotkey) {
-    hotkeyManager.register(params.config.hotkey);
-  } else {
-    hotkeyManager.unregister();
+
+  const hotkeyChanged = previous.hotkey !== params.config.hotkey;
+  const enabledChanged = previous.enabled !== params.config.enabled;
+
+  if (hotkeyChanged || enabledChanged) {
+    if (params.config.enabled && params.config.hotkey) {
+      hotkeyManager.register(params.config.hotkey);
+    } else {
+      hotkeyManager.unregister();
+    }
   }
   return { success: true };
 }

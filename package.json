@@ -2,6 +2,7 @@
   "name": "cushion",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Cushion monorepo",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {

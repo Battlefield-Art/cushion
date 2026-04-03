@@ -1,10 +1,8 @@
 import { spawn, type ChildProcess } from 'child_process';
-import fs from 'fs/promises';
-import { existsSync, mkdirSync, accessSync, constants as fsConstants, chmodSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import net from 'net';
 import os from 'os';
-import crypto from 'crypto';
 import { app } from 'electron';
 import type { DictationModelName, DictationServerStatus, DictationServerInfo, TranscriptionResult } from '@cushion/types';
 import { SHERPA_MODEL_CATALOG, buildSherpaCliArgs } from './sherpa-model-catalog';
@@ -28,7 +26,6 @@ export class SherpaManager {
   private startupPromise: Promise<void> | null = null;
   private transcribing = false;
   private currentAccelerator: 'cpu' | 'gpu' = 'cpu';
-  private cachedFFmpegPath: string | null = null;
   private notify: NotifyFn;
   private binDir: string;
 
@@ -38,7 +35,7 @@ export class SherpaManager {
   }
 
   async init(): Promise<void> {
-    this.resolveFFmpegPath();
+    // No-op; kept for interface compatibility
   }
 
   async start(modelName: DictationModelName, modelDir: string, language?: string, accelerator: 'cpu' | 'gpu' = 'cpu'): Promise<void> {
@@ -91,23 +88,12 @@ export class SherpaManager {
     this.setStatus('stopped');
   }
 
-  async transcribe(audioBuffer: Buffer): Promise<TranscriptionResult> {
+  async transcribe(samplesBuffer: Buffer, sampleRate: number): Promise<TranscriptionResult> {
     if (!this.ready || !this.process) {
       throw new Error('sherpa-onnx server is not running');
     }
 
-    if (!this.cachedFFmpegPath) {
-      throw new Error('FFmpeg not found — required for audio conversion');
-    }
-
-    // Convert webm to 16kHz mono WAV (int16)
-    const wavBuffer = await this.convertToWav(audioBuffer);
-
-    // Parse WAV to float32 samples
-    const { samples, sampleRate } = this.wavToFloat32(wavBuffer);
-
-    // Send via WebSocket
-    return this.wsTranscribe(samples, sampleRate);
+    return this.wsTranscribe(samplesBuffer, sampleRate);
   }
 
   getStatus(): DictationServerInfo {
@@ -293,32 +279,6 @@ export class SherpaManager {
     });
   }
 
-  /** Parse a 16-bit PCM WAV buffer into float32 samples */
-  private wavToFloat32(wavBuffer: Buffer): { samples: Buffer; sampleRate: number } {
-    // WAV header: bytes 24-27 = sample rate, bytes 34-35 = bits per sample
-    // Data chunk starts after header (typically byte 44)
-    let dataOffset = 44;
-    const sampleRate = wavBuffer.readUInt32LE(24);
-
-    // Find the 'data' chunk for robustness
-    for (let i = 12; i < wavBuffer.length - 8; i++) {
-      if (wavBuffer.toString('ascii', i, i + 4) === 'data') {
-        dataOffset = i + 8;
-        break;
-      }
-    }
-
-    const numInt16Samples = (wavBuffer.length - dataOffset) / 2;
-    const float32Buffer = Buffer.alloc(numInt16Samples * 4);
-
-    for (let i = 0; i < numInt16Samples; i++) {
-      const int16Val = wavBuffer.readInt16LE(dataOffset + i * 2);
-      float32Buffer.writeFloatLE(int16Val / 32768.0, i * 4);
-    }
-
-    return { samples: float32Buffer, sampleRate };
-  }
-
   private async findAvailablePort(): Promise<number> {
     for (let port = PORT_RANGE_START; port <= PORT_RANGE_END; port++) {
       if (await this.isPortAvailable(port)) return port;
@@ -381,114 +341,6 @@ export class SherpaManager {
     const binaryPath = path.join(binDir, binaryName);
     if (existsSync(binaryPath)) return binaryPath;
     return null;
-  }
-
-  private async convertToWav(audioBuffer: Buffer): Promise<Buffer> {
-    const tempDir = this.getSafeTempDir();
-    const id = crypto.randomUUID();
-    const inputPath = path.join(tempDir, `sherpa-input-${id}.webm`);
-    const outputPath = path.join(tempDir, `sherpa-output-${id}.wav`);
-
-    try {
-      await fs.writeFile(inputPath, audioBuffer);
-      await this.runFFmpeg(inputPath, outputPath);
-      return await fs.readFile(outputPath);
-    } finally {
-      for (const f of [inputPath, outputPath]) {
-        try { if (existsSync(f)) await fs.unlink(f); } catch {}
-      }
-    }
-  }
-
-  private runFFmpeg(inputPath: string, outputPath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.cachedFFmpegPath) {
-        reject(new Error('FFmpeg not found'));
-        return;
-      }
-
-      const proc = spawn(this.cachedFFmpegPath, [
-        '-i', inputPath,
-        '-ar', '16000',
-        '-ac', '1',
-        '-c:a', 'pcm_s16le',
-        '-y', outputPath,
-      ], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
-
-      let stderr = '';
-      proc.stderr.on('data', (d) => { stderr += d.toString(); });
-      proc.on('error', (err) => reject(new Error(`FFmpeg error: ${err.message}`)));
-      proc.on('close', (code) => {
-        if (code !== 0) {
-          reject(new Error(`FFmpeg exited with code ${code}: ${stderr.slice(-300)}`));
-          return;
-        }
-        if (!existsSync(outputPath)) {
-          reject(new Error('FFmpeg produced no output'));
-          return;
-        }
-        resolve();
-      });
-    });
-  }
-
-  private resolveFFmpegPath(): void {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      let ffmpegPath: string = require('ffmpeg-static');
-      ffmpegPath = path.normalize(ffmpegPath);
-
-      if (process.platform === 'win32' && !ffmpegPath.endsWith('.exe')) {
-        ffmpegPath += '.exe';
-      }
-
-      const unpackedPath = ffmpegPath.includes('app.asar')
-        ? ffmpegPath.replace(/app\.asar([/\\])/, 'app.asar.unpacked$1')
-        : null;
-
-      if (unpackedPath && existsSync(unpackedPath)) {
-        if (process.platform !== 'win32') {
-          try { accessSync(unpackedPath, fsConstants.X_OK); }
-          catch { try { chmodSync(unpackedPath, 0o755); } catch {} }
-        }
-        this.cachedFFmpegPath = unpackedPath;
-        return;
-      }
-
-      if (existsSync(ffmpegPath)) {
-        if (process.platform !== 'win32') {
-          try { accessSync(ffmpegPath, fsConstants.X_OK); }
-          catch { throw new Error('Not executable'); }
-        }
-        this.cachedFFmpegPath = ffmpegPath;
-        return;
-      }
-    } catch {}
-
-    const candidates = process.platform === 'darwin'
-      ? ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg']
-      : process.platform === 'win32'
-        ? ['C:\\ffmpeg\\bin\\ffmpeg.exe']
-        : ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg'];
-
-    for (const c of candidates) {
-      if (existsSync(c)) { this.cachedFFmpegPath = c; return; }
-    }
-
-    const pathEnv = process.env.PATH || '';
-    const sep = process.platform === 'win32' ? ';' : ':';
-    const bin = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
-
-    for (const dir of pathEnv.split(sep)) {
-      if (!dir) continue;
-      const candidate = path.join(dir.replace(/^"|"$/g, ''), bin);
-      if (!existsSync(candidate)) continue;
-      if (process.platform !== 'win32') {
-        try { accessSync(candidate, fsConstants.X_OK); } catch { continue; }
-      }
-      this.cachedFFmpegPath = candidate;
-      return;
-    }
   }
 
   private getSafeTempDir(): string {

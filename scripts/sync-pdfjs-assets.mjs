@@ -52,6 +52,17 @@ for (const fileName of sourceImageFiles) {
   copyFileSync(join(sourceImagesDir, fileName), join(targetImagesDir, fileName));
 }
 
+// Copy the LICENSE file (resolve from the same pdfjs-dist used by frontend)
+const pdfjsRoot = join(repoRoot, 'apps', 'frontend', 'node_modules', 'pdfjs-dist');
+const sourceLicensePath = join(pdfjsRoot, 'LICENSE');
+const targetLicensePath = join(targetRoot, 'LICENSE');
+if (existsSync(sourceLicensePath)) {
+  copyFileSync(sourceLicensePath, targetLicensePath);
+  console.log(`Synced PDF.js LICENSE: ${targetLicensePath}`);
+} else {
+  console.warn(`Warning: PDF.js LICENSE not found at ${sourceLicensePath}`);
+}
+
 // Copy the worker script
 const sourceWorkerPath = join(repoRoot, 'apps', 'frontend', 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.min.mjs');
 const targetWorkerPath = join(targetRoot, 'pdf.worker.min.mjs');
