@@ -506,7 +506,6 @@ export const useDictationStore = create<DictationState>()(
       };
 
       source.connect(workletNode);
-      workletNode.connect(audioContext.destination);
       set({ status: 'recording', error: null });
       playStartCue();
     },
