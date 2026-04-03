@@ -91,11 +91,18 @@ export async function handleDictationConfigWrite(
   hotkeyManager: HotkeyManager,
   params: { config: DictationConfig },
 ) {
+  const previous = await dictationConfig.read();
   await dictationConfig.write(params.config);
-  if (params.config.enabled && params.config.hotkey) {
-    hotkeyManager.register(params.config.hotkey);
-  } else {
-    hotkeyManager.unregister();
+
+  const hotkeyChanged = previous.hotkey !== params.config.hotkey;
+  const enabledChanged = previous.enabled !== params.config.enabled;
+
+  if (hotkeyChanged || enabledChanged) {
+    if (params.config.enabled && params.config.hotkey) {
+      hotkeyManager.register(params.config.hotkey);
+    } else {
+      hotkeyManager.unregister();
+    }
   }
   return { success: true };
 }
