@@ -10,43 +10,18 @@ import type { OllamaModelInfo, OllamaModelCategory } from '@cushion/types';
 
 export function DictationPostProcessing() {
   const updatePostProcessing = useDictationStore((s) => s.updatePostProcessing);
-  const storePostProcessing = useDictationStore((s) => s.postProcessing);
+  const pp = useDictationStore((s) => s.postProcessing);
 
-  const [enabled, setEnabled] = useState(storePostProcessing.enabled);
-  const [provider, setProvider] = useState(storePostProcessing.provider);
-  const [apiKey, setApiKey] = useState(storePostProcessing.apiKey || '');
-  const [baseUrl, setBaseUrl] = useState(storePostProcessing.baseUrl || '');
-  const [model, setModel] = useState(storePostProcessing.model);
+  const [apiKey, setApiKey] = useState(pp.apiKey || '');
+  const [baseUrl, setBaseUrl] = useState(pp.baseUrl || '');
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
-  const [fillerRemoval, setFillerRemoval] = useState(storePostProcessing.fillerRemoval ?? true);
-  const [stutterCollapse, setStutterCollapse] = useState(storePostProcessing.stutterCollapse ?? true);
-  const [includeNoteContext, setIncludeNoteContext] = useState(storePostProcessing.includeNoteContext ?? true);
-  const [autoLearnCorrections, setAutoLearnCorrections] = useState(storePostProcessing.autoLearnCorrections ?? true);
-  const [fuzzyCorrection, setFuzzyCorrection] = useState(storePostProcessing.fuzzyCorrection ?? true);
-  const [dictionaryInPrompt, setDictionaryInPrompt] = useState(storePostProcessing.dictionaryInPrompt ?? true);
-  const [skipShort, setSkipShort] = useState(storePostProcessing.skipShortTranscriptions ?? true);
-  const [shortThreshold, setShortThreshold] = useState(storePostProcessing.shortTextThreshold ?? 3);
-  const [thinking, setThinking] = useState(storePostProcessing.thinking ?? false);
 
   useEffect(() => {
-    setEnabled(storePostProcessing.enabled);
-    setProvider(storePostProcessing.provider);
-    setApiKey(storePostProcessing.apiKey || '');
-    setBaseUrl(storePostProcessing.baseUrl || '');
-    setModel(storePostProcessing.model);
-    setFillerRemoval(storePostProcessing.fillerRemoval ?? true);
-    setStutterCollapse(storePostProcessing.stutterCollapse ?? true);
-    setIncludeNoteContext(storePostProcessing.includeNoteContext ?? true);
-    setAutoLearnCorrections(storePostProcessing.autoLearnCorrections ?? true);
-    setFuzzyCorrection(storePostProcessing.fuzzyCorrection ?? true);
-    setDictionaryInPrompt(storePostProcessing.dictionaryInPrompt ?? true);
-    setSkipShort(storePostProcessing.skipShortTranscriptions ?? true);
-    setShortThreshold(storePostProcessing.shortTextThreshold ?? 3);
-    setThinking(storePostProcessing.thinking ?? false);
-  }, [storePostProcessing]);
+    setApiKey(pp.apiKey || '');
+    setBaseUrl(pp.baseUrl || '');
+  }, [pp]);
 
   const handleProviderChange = (next: 'openai' | 'ollama') => {
-    setProvider(next);
     const updates: Record<string, unknown> = { provider: next };
     if (next === 'ollama') {
       setBaseUrl('http://localhost:11434');
@@ -68,7 +43,6 @@ export function DictationPostProcessing() {
 
   const handleThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Math.max(1, Math.min(15, Number(e.target.value) || 1));
-    setShortThreshold(val);
     updatePostProcessing({ shortTextThreshold: val });
   };
 
@@ -79,20 +53,20 @@ export function DictationPostProcessing() {
       <ToggleRow
         label="Remove filler words"
         description="Remove uh, um, hmm and similar filler sounds"
-        checked={fillerRemoval}
-        onChange={() => { const next = !fillerRemoval; setFillerRemoval(next); updatePostProcessing({ fillerRemoval: next }); }}
+        checked={pp.fillerRemoval}
+        onChange={() => updatePostProcessing({ fillerRemoval: !pp.fillerRemoval })}
       />
       <ToggleRow
         label="Collapse stutters"
         description="Collapse repeated words (e.g. no no no → no)"
-        checked={stutterCollapse}
-        onChange={() => { const next = !stutterCollapse; setStutterCollapse(next); updatePostProcessing({ stutterCollapse: next }); }}
+        checked={pp.stutterCollapse}
+        onChange={() => updatePostProcessing({ stutterCollapse: !pp.stutterCollapse })}
       />
       <ToggleRow
         label="Auto-learn corrections"
         description="Learn new words when you edit dictated text"
-        checked={autoLearnCorrections}
-        onChange={() => { const next = !autoLearnCorrections; setAutoLearnCorrections(next); updatePostProcessing({ autoLearnCorrections: next }); }}
+        checked={pp.autoLearnCorrections}
+        onChange={() => updatePostProcessing({ autoLearnCorrections: !pp.autoLearnCorrections })}
       />
 
       <h3 className="text-xs uppercase tracking-wide text-foreground-faint mb-3 mt-6">Post-Processing</h3>
@@ -100,29 +74,29 @@ export function DictationPostProcessing() {
       <ToggleRow
         label="Fuzzy correction"
         description="Auto-correct words using your dictionary"
-        checked={fuzzyCorrection}
-        onChange={() => { const next = !fuzzyCorrection; setFuzzyCorrection(next); updatePostProcessing({ fuzzyCorrection: next }); }}
+        checked={pp.fuzzyCorrection}
+        onChange={() => updatePostProcessing({ fuzzyCorrection: !pp.fuzzyCorrection })}
       />
 
       <ToggleRow
         label="AI post-processing"
         description="Clean up transcribed text with an LLM"
-        checked={enabled}
-        onChange={() => { const next = !enabled; setEnabled(next); updatePostProcessing({ enabled: next }); }}
+        checked={pp.enabled}
+        onChange={() => updatePostProcessing({ enabled: !pp.enabled })}
       />
-      <label className={cn('flex items-center justify-between gap-4 py-2', !enabled && 'opacity-40 pointer-events-none')}>
+      <label className={cn('flex items-center justify-between gap-4 py-2', !pp.enabled && 'opacity-40 pointer-events-none')}>
         <div>
           <div className="text-sm font-medium">Skip short phrases</div>
           <div className="text-xs text-foreground-muted flex items-center gap-2">
             <span>Skip AI enhancement for very short phrases</span>
-            {skipShort && (
+            {pp.skipShortTranscriptions && (
               <span className="inline-flex items-center gap-1">
                 <span className="text-foreground-faint">Threshold</span>
                 <input
                   type="number"
                   min={1}
                   max={15}
-                  value={shortThreshold}
+                  value={pp.shortTextThreshold}
                   onChange={handleThresholdChange}
                   onClick={(e) => e.stopPropagation()}
                   className="w-10 px-1 py-0 text-xs text-center rounded bg-surface border border-border text-foreground focus:outline-none focus:border-[var(--accent-primary)]"
@@ -134,47 +108,47 @@ export function DictationPostProcessing() {
         <button
           type="button"
           role="switch"
-          aria-checked={skipShort}
-          disabled={!enabled}
-          onClick={() => { const next = !skipShort; setSkipShort(next); updatePostProcessing({ skipShortTranscriptions: next }); }}
+          aria-checked={pp.skipShortTranscriptions}
+          disabled={!pp.enabled}
+          onClick={() => updatePostProcessing({ skipShortTranscriptions: !pp.skipShortTranscriptions })}
           className={cn(
             'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-border transition-colors',
-            skipShort ? 'bg-[var(--accent-primary)]' : 'bg-[var(--border-subtle)]',
+            pp.skipShortTranscriptions ? 'bg-[var(--accent-primary)]' : 'bg-[var(--border-subtle)]',
           )}
         >
-          <span className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-background transition-transform ${skipShort ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          <span className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-background transition-transform ${pp.skipShortTranscriptions ? 'translate-x-4' : 'translate-x-0.5'}`} />
         </button>
       </label>
 
       <ToggleRow
         label="Include note context"
         description="Send surrounding text to match tone and style"
-        checked={includeNoteContext}
-        disabled={!enabled}
-        onChange={() => { const next = !includeNoteContext; setIncludeNoteContext(next); updatePostProcessing({ includeNoteContext: next }); }}
+        checked={pp.includeNoteContext ?? true}
+        disabled={!pp.enabled}
+        onChange={() => updatePostProcessing({ includeNoteContext: !(pp.includeNoteContext ?? true) })}
       />
       <ToggleRow
         label="Use dictionary with AI"
         description="Include custom dictionary in the AI prompt"
-        checked={dictionaryInPrompt}
-        disabled={!enabled}
-        onChange={() => { const next = !dictionaryInPrompt; setDictionaryInPrompt(next); updatePostProcessing({ dictionaryInPrompt: next }); }}
+        checked={pp.dictionaryInPrompt}
+        disabled={!pp.enabled}
+        onChange={() => updatePostProcessing({ dictionaryInPrompt: !pp.dictionaryInPrompt })}
       />
 
-      <div className={cn("flex items-center justify-between mt-3", !enabled && "opacity-40")}>
+      <div className={cn("flex items-center justify-between mt-3", !pp.enabled && "opacity-40")}>
         <div>
           <div className="text-sm font-medium">Processing Model</div>
           <div className="text-xs text-foreground-muted">
-            {model || 'gpt-4o-mini'} — {provider === 'ollama' ? 'Local (Ollama)' : 'Cloud (OpenAI)'}
+            {pp.model || 'gpt-4o-mini'} — {pp.provider === 'ollama' ? 'Local (Ollama)' : 'Cloud (OpenAI)'}
           </div>
         </div>
         <button
           type="button"
-          disabled={!enabled}
+          disabled={!pp.enabled}
           onClick={() => setModelDialogOpen(true)}
           className={cn(
             'text-xs text-foreground-muted hover:text-foreground transition-colors px-3 py-1.5 rounded-md border border-border hover:bg-background-secondary',
-            !enabled && 'opacity-40 cursor-not-allowed',
+            !pp.enabled && 'opacity-40 cursor-not-allowed',
           )}
         >
           Manage
@@ -183,18 +157,18 @@ export function DictationPostProcessing() {
 
       {modelDialogOpen && (
         <ProcessingModelDialog
-          provider={provider}
+          provider={pp.provider}
           apiKey={apiKey}
           baseUrl={baseUrl}
-          model={model}
-          thinking={thinking}
+          model={pp.model}
+          thinking={pp.thinking ?? false}
           onProviderChange={handleProviderChange}
           onApiKeyChange={setApiKey}
           onApiKeyBlur={handleApiKeyBlur}
           onBaseUrlChange={setBaseUrl}
           onBaseUrlBlur={handleBaseUrlBlur}
-          onModelChange={(m: string) => { setModel(m); updatePostProcessing({ model: m }); }}
-          onThinkingChange={(v: boolean) => { setThinking(v); updatePostProcessing({ thinking: v }); }}
+          onModelChange={(m: string) => updatePostProcessing({ model: m })}
+          onThinkingChange={(v: boolean) => updatePostProcessing({ thinking: v })}
           onClose={() => setModelDialogOpen(false)}
         />
       )}

@@ -83,8 +83,7 @@ export function pullOllamaModel(
       }
 
       return success || lastStatus.includes('up to date');
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') return false;
+    } catch {
       return false;
     }
   })();

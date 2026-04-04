@@ -1,6 +1,3 @@
-import http from 'http';
-import https from 'https';
-import { URL } from 'url';
 import type { DictationConfigManager } from './dictation-config';
 import { applyFuzzyCorrection } from './fuzzy-correct';
 import { applyTextCleanup } from './text-cleanup';
@@ -74,20 +71,21 @@ interface LLMRequest {
   thinking?: boolean;
 }
 
-function callLLM(req: LLMRequest): Promise<string> {
+async function callLLM(req: LLMRequest): Promise<string> {
   const messages = [
     { role: 'system', content: req.systemPrompt },
     { role: 'user', content: req.userText },
   ];
 
-  let url: URL;
+  let url: string;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   let body: string;
   let extractContent: (json: Record<string, unknown>) => string | undefined;
 
   if (req.provider === 'ollama') {
-    url = new URL(req.baseUrl || 'http://localhost:11434');
-    url.pathname = '/api/chat';
+    const base = new URL(req.baseUrl || 'http://localhost:11434');
+    base.pathname = '/api/chat';
+    url = base.toString();
     body = JSON.stringify({
       model: req.model,
       messages,
@@ -97,7 +95,7 @@ function callLLM(req: LLMRequest): Promise<string> {
     extractContent = (json) =>
       (json.message as { content?: string })?.content?.trim();
   } else {
-    url = new URL(req.baseUrl || 'https://api.openai.com/v1/chat/completions');
+    url = req.baseUrl || 'https://api.openai.com/v1/chat/completions';
     if (req.apiKey) headers['Authorization'] = `Bearer ${req.apiKey}`;
     body = JSON.stringify({
       model: req.model,
@@ -108,42 +106,21 @@ function callLLM(req: LLMRequest): Promise<string> {
       ((json.choices as { message?: { content?: string } }[])?.[0])?.message?.content?.trim();
   }
 
-  return new Promise((resolve, reject) => {
-    const transport = url.protocol === 'https:' ? https : http;
-    const httpReq = transport.request(
-      url,
-      { method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) } },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(data);
-            if (json.error) {
-              reject(new Error(typeof json.error === 'string' ? json.error : json.error.message || 'LLM API error'));
-              return;
-            }
-            const content = extractContent(json);
-            if (!content) {
-              reject(new Error('Empty response from LLM'));
-              return;
-            }
-            resolve(content);
-          } catch (err) {
-            reject(err);
-          }
-        });
-      },
-    );
-
-    const timeoutMs = req.thinking ? 90_000 : 45_000;
-    httpReq.setTimeout(timeoutMs, () => {
-      httpReq.destroy(new Error('LLM request timed out'));
-    });
-    httpReq.on('error', reject);
-    httpReq.write(body);
-    httpReq.end();
+  const timeoutMs = req.thinking ? 90_000 : 45_000;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body,
+    signal: AbortSignal.timeout(timeoutMs),
   });
+
+  const json = await res.json();
+  if (json.error) {
+    throw new Error(typeof json.error === 'string' ? json.error : json.error.message || 'LLM API error');
+  }
+  const content = extractContent(json);
+  if (!content) throw new Error('Empty response from LLM');
+  return content;
 }
 
 export class PostProcessor {
@@ -151,11 +128,9 @@ export class PostProcessor {
 
   async process(rawText: string, language?: string, noteContext?: string): Promise<{ text: string; wasProcessed: boolean }> {
     const trimmed = rawText.trim();
-    console.log('[PostProcessor] RAW →', trimmed);
     if (!trimmed) return { text: '', wasProcessed: false };
 
     if (isHallucination(trimmed)) {
-      console.log('[PostProcessor] hallucination caught, discarded');
       return { text: '', wasProcessed: true };
     }
 
@@ -167,7 +142,6 @@ export class PostProcessor {
     if (config.postProcessing.fuzzyCorrection && config.dictionary.length > 0) {
       const fuzzyResult = applyFuzzyCorrection(text, config.dictionary);
       if (fuzzyResult !== text) {
-        console.log('[PostProcessor] POST FUZZY →', fuzzyResult);
         text = fuzzyResult;
         wasProcessed = true;
       }
@@ -177,7 +151,6 @@ export class PostProcessor {
     if (fillerRemoval || stutterCollapse) {
       text = applyTextCleanup(text, { fillerRemoval, stutterCollapse, language });
       if (text !== trimmed) {
-        console.log('[PostProcessor] CLEANED UP →', text);
         wasProcessed = true;
       }
       if (!text) return { text: '', wasProcessed: true };
@@ -186,7 +159,6 @@ export class PostProcessor {
     if (config.postProcessing.skipShortTranscriptions) {
       const wordCount = countWords(text);
       if (wordCount <= config.postProcessing.shortTextThreshold) {
-        console.log(`[PostProcessor] short text (${wordCount} words), skipping LLM`);
         return { text, wasProcessed };
       }
     }
@@ -210,10 +182,9 @@ export class PostProcessor {
         apiKey: config.postProcessing.apiKey,
         thinking: config.postProcessing.thinking,
       });
-      console.log('[PostProcessor] POST AI →', cleaned);
       return { text: cleaned, wasProcessed: true };
     } catch (err) {
-      console.error('[PostProcessor] LLM call failed, falling back to cleaned text:', err);
+      if (err instanceof Error && err.name === 'TimeoutError') throw err;
       return { text, wasProcessed };
     }
   }
