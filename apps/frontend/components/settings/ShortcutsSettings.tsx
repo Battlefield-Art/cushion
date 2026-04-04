@@ -79,7 +79,7 @@ export function ShortcutsSettings() {
       ? shortcutRegistry.filter((shortcut) => {
           const haystack = [
             shortcut.label,
-            shortcut.description || '',
+            (shortcut as { description?: string }).description || '',
             shortcut.category,
             shortcut.id,
           ].join(' ').toLowerCase();
@@ -180,9 +180,9 @@ export function ShortcutsSettings() {
                       <div className="text-sm font-medium text-foreground">
                         {shortcut.label}
                       </div>
-                      {shortcut.description && (
+                      {(shortcut as { description?: string }).description && (
                         <div className="text-xs text-foreground-muted mt-1">
-                          {shortcut.description}
+                          {(shortcut as { description?: string }).description}
                         </div>
                       )}
                       {conflicts.length > 0 && (

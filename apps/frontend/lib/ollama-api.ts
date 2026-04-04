@@ -1,5 +1,18 @@
 const OLLAMA_BASE = 'http://localhost:11434';
 
+export async function pingOllama(baseUrl = OLLAMA_BASE): Promise<boolean> {
+  if (window.electronAPI) {
+    const result = await window.electronAPI.coordinatorInvoke('ollama/list-models', { baseUrl });
+    return result.models !== undefined;
+  }
+  try {
+    const res = await fetch(`${baseUrl}/api/tags`);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export interface LocalOllamaModel {
   name: string;
   sizeMb: number;
@@ -7,6 +20,11 @@ export interface LocalOllamaModel {
 }
 
 export async function fetchLocalOllamaModels(baseUrl = OLLAMA_BASE): Promise<LocalOllamaModel[]> {
+  if (window.electronAPI) {
+    const result = await window.electronAPI.coordinatorInvoke('ollama/list-models', { baseUrl });
+    return result.models;
+  }
+
   try {
     const res = await fetch(`${baseUrl}/api/tags`);
     if (!res.ok) return [];
@@ -38,6 +56,42 @@ export function pullOllamaModel(
   onProgress: (p: PullProgress) => void,
   baseUrl = OLLAMA_BASE,
 ): { cancel: () => void; done: Promise<boolean> } {
+  if (window.electronAPI) {
+    const cleanup = window.electronAPI.onCoordinatorNotification(
+      'ollama/pull-progress',
+      (data: PullProgress & { model: string }) => {
+        if (data.model === modelId) {
+          onProgress({
+            status: data.status,
+            error: data.error,
+            total: data.total,
+            completed: data.completed,
+            percent: data.percent,
+          });
+        }
+      },
+    );
+
+    const done = window.electronAPI
+      .coordinatorInvoke('ollama/pull', { model: modelId, baseUrl })
+      .then((result: { success: boolean }) => {
+        cleanup();
+        return result.success;
+      })
+      .catch(() => {
+        cleanup();
+        return false;
+      });
+
+    return {
+      cancel: () => {
+        window.electronAPI.coordinatorInvoke('ollama/cancel-pull', {});
+        cleanup();
+      },
+      done,
+    };
+  }
+
   const controller = new AbortController();
 
   const done = (async () => {

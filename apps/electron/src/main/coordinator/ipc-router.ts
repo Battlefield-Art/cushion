@@ -47,6 +47,12 @@ import { SherpaManager } from './sherpa-manager';
 import { SherpaBinaryManager } from './sherpa-binary-manager';
 
 import {
+  handleOllamaListModels,
+  handleOllamaPull,
+  handleOllamaCancelPull,
+} from './handlers/ollama';
+
+import {
   handleDictationListModels,
   handleDictationDownloadModel,
   handleDictationCancelDownload,
@@ -282,6 +288,19 @@ export async function initCoordinator(mainWindow: BrowserWindow) {
 
   ipcMain.handle('coordinator:shell/login-finish', async () => {
     return handleLoginFinish();
+  });
+
+  // Ollama handlers
+  ipcMain.handle('coordinator:ollama/list-models', async (_event, params: RPCParams<'ollama/list-models'>) => {
+    return handleOllamaListModels(params);
+  });
+
+  ipcMain.handle('coordinator:ollama/pull', async (_event, params: RPCParams<'ollama/pull'>) => {
+    return handleOllamaPull(params, notifyRenderer);
+  });
+
+  ipcMain.handle('coordinator:ollama/cancel-pull', async () => {
+    return handleOllamaCancelPull();
   });
 
   // Dictation handlers

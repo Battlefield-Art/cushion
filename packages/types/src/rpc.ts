@@ -275,6 +275,20 @@ export interface RPCMethodMap {
     params: { hotkey: string };
     result: { success: boolean };
   };
+  // Ollama
+  'ollama/list-models': {
+    params: { baseUrl?: string };
+    result: { models: Array<{ name: string; sizeMb: number; parameterSize: string }> };
+  };
+  'ollama/pull': {
+    params: { model: string; baseUrl?: string };
+    result: { success: boolean };
+  };
+  'ollama/cancel-pull': {
+    params: void;
+    result: { cancelled: boolean };
+  };
+
   'dictation/is-gpu-available': {
     params: void;
     result: { available: boolean; gpuName: string | null };
@@ -325,6 +339,14 @@ export interface RPCServerNotificationMap {
   'dictation/gpu-binary-download-error': { error: string };
   'dictation/hotkey-pressed': {};
   'dictation/hotkey-registration-failed': { hotkey: string; error: string };
+  'ollama/pull-progress': {
+    model: string;
+    status: string;
+    error?: string;
+    total?: number;
+    completed?: number;
+    percent: number;
+  };
 }
 
 export type RPCMethodName = keyof RPCMethodMap;

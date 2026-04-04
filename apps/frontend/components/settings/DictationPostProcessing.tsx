@@ -4,7 +4,7 @@ import { useDictationStore } from '@/stores/dictationStore';
 import { cn } from '@/lib/utils';
 import { ToggleRow } from './FilesSettings';
 import { OLLAMA_MODELS, OLLAMA_MODEL_CATEGORIES } from './ollama-models';
-import { fetchLocalOllamaModels, pullOllamaModel } from '@/lib/ollama-api';
+import { pingOllama, fetchLocalOllamaModels, pullOllamaModel } from '@/lib/ollama-api';
 import type { LocalOllamaModel } from '@/lib/ollama-api';
 import type { OllamaModelInfo, OllamaModelCategory } from '@cushion/types';
 
@@ -220,6 +220,7 @@ function ProcessingModelDialog({
   const [showKey, setShowKey] = useState(false);
   const [customModel, setCustomModel] = useState('');
   const [localModels, setLocalModels] = useState<LocalOllamaModel[]>([]);
+  const [ollamaReachable, setOllamaReachable] = useState<boolean | null>(null);
   const [pulling, setPulling] = useState<PullState | null>(null);
   const cancelRef = useRef<(() => void) | null>(null);
 
@@ -241,7 +242,10 @@ function ProcessingModelDialog({
   }, []);
 
   useEffect(() => {
-    fetchLocalOllamaModels().then(setLocalModels);
+    pingOllama().then((up) => {
+      setOllamaReachable(up);
+      if (up) fetchLocalOllamaModels().then(setLocalModels);
+    });
   }, []);
 
   useEffect(() => {
@@ -376,7 +380,37 @@ function ProcessingModelDialog({
           )}
         </div>
 
-        {tab === 'local' && (
+        {tab === 'local' && ollamaReachable === null && (
+          <div className="px-5 pb-5 flex items-center justify-center py-10">
+            <span className="text-sm text-foreground-muted">Checking Ollama...</span>
+          </div>
+        )}
+
+        {tab === 'local' && ollamaReachable === false && (
+          <div className="px-5 pb-5 flex flex-col items-center justify-center py-10 gap-3">
+            <p className="text-sm text-foreground-muted text-center">
+              Could not connect to Ollama.
+            </p>
+            <p className="text-xs text-foreground-faint text-center">
+              Make sure Ollama is running by executing <code className="px-1.5 py-0.5 rounded bg-surface border border-border text-foreground text-xs">ollama serve</code> in your terminal.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setOllamaReachable(null);
+                pingOllama().then((up) => {
+                  setOllamaReachable(up);
+                  if (up) fetchLocalOllamaModels().then(setLocalModels);
+                });
+              }}
+              className="mt-2 px-3 py-1.5 text-xs rounded-md border border-border text-foreground-muted hover:text-foreground hover:bg-[var(--overlay-10)] transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {tab === 'local' && ollamaReachable === true && (
           <div className="px-5 pb-5 space-y-5 max-h-[55vh] overflow-y-auto thin-scrollbar">
             {OLLAMA_MODEL_CATEGORIES.map((cat) => {
               const catModels = grouped.get(cat);
