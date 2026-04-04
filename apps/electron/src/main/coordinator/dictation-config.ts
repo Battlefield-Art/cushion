@@ -40,7 +40,6 @@ function migrateWhisperModel(name: string): DictationModelName {
 }
 
 function migrateConfig(raw: Record<string, unknown>): DictationConfig {
-  // Already migrated — no legacy selectedEngine field present
   if (raw.selectedModel && typeof raw.selectedModel === 'string' && !raw.selectedEngine) {
     return {
       ...DEFAULT_CONFIG,
@@ -51,7 +50,6 @@ function migrateConfig(raw: Record<string, unknown>): DictationConfig {
     };
   }
 
-  // Legacy format: selectedEngine + selectedModel (WhisperModelName) + selectedSherpaModel
   const engine = raw.selectedEngine as string | undefined;
   const whisperModel = raw.selectedModel as string | undefined;
   const sherpaModel = raw.selectedSherpaModel as string | undefined;
@@ -74,7 +72,7 @@ function migrateConfig(raw: Record<string, unknown>): DictationConfig {
 
 export class DictationConfigManager {
   private configPath: string;
-  private cache: DictationConfig | null = null;
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor() {
     this.configPath = path.join(app.getPath('userData'), CONFIG_FILE);
@@ -91,18 +89,21 @@ export class DictationConfigManager {
   async read(): Promise<DictationConfig> {
     const raw = await fs.readFile(this.configPath, 'utf-8');
     const parsed = JSON.parse(raw);
-    this.cache = migrateConfig(parsed);
+    const config = migrateConfig(parsed);
 
     if (parsed.selectedEngine !== undefined) {
-      await this.write(this.cache);
+      await this.write(config);
     }
 
-    return this.cache;
+    return config;
   }
 
   async write(config: DictationConfig): Promise<void> {
-    this.cache = config;
-    await fs.writeFile(this.configPath, JSON.stringify(config, null, 2), 'utf-8');
+    const task = this.writeQueue.then(() =>
+      fs.writeFile(this.configPath, JSON.stringify(config, null, 2), 'utf-8'),
+    );
+    this.writeQueue = task.catch(() => {});
+    await task;
   }
 
   async getDictionary(): Promise<string[]> {

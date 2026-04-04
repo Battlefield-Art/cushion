@@ -68,20 +68,13 @@ let coordinatorClient: CoordinatorClient | null = null;
 let mediaStream: MediaStream | null = null;
 let audioContext: AudioContext | null = null;
 let workletNode: AudioWorkletNode | null = null;
+let analyserNode: AnalyserNode | null = null;
 let insertTextCallback: ((text: string) => { from: number; to: number } | void) | null = null;
 let getNoteContextCallback: (() => string) | null = null;
 let onTextInsertedCallback: ((originalText: string, from: number, to: number) => void) | null = null;
 let dictationConfig: DictationConfig | null = null;
 let recordingFocusTarget: FocusTarget | null = null;
-let serverStatusCleanup: (() => void) | null = null;
-let downloadProgressCleanup: (() => void) | null = null;
-let downloadCompleteCleanup: (() => void) | null = null;
-let downloadErrorCleanup: (() => void) | null = null;
-let hotkeyPressedCleanup: (() => void) | null = null;
-let hotkeyFailedCleanup: (() => void) | null = null;
-let gpuDownloadProgressCleanup: (() => void) | null = null;
-let gpuDownloadCompleteCleanup: (() => void) | null = null;
-let gpuDownloadErrorCleanup: (() => void) | null = null;
+let listenerCleanups: Array<() => void> = [];
 
 export function setInsertTextCallback(cb: ((text: string) => { from: number; to: number } | void) | null) {
   insertTextCallback = cb;
@@ -95,7 +88,15 @@ export function setOnTextInsertedCallback(cb: ((originalText: string, from: numb
   onTextInsertedCallback = cb;
 }
 
+export function getAnalyserNode(): AnalyserNode | null {
+  return analyserNode;
+}
+
 function cleanupMedia() {
+  if (analyserNode) {
+    try { analyserNode.disconnect(); } catch {}
+    analyserNode = null;
+  }
   if (workletNode) {
     try { workletNode.disconnect(); } catch {}
     workletNode = null;
@@ -119,7 +120,7 @@ export const useDictationStore = create<DictationState>()(
     selectedModel: 'parakeet-v3',
     downloadProgress: null,
     settingsLoaded: false,
-    postProcessing: { enabled: false, provider: 'openai', apiKey: '', model: 'gpt-4o-mini', fillerRemoval: true, stutterCollapse: true, includeNoteContext: true, autoLearnCorrections: true, skipShortTranscriptions: true, shortTextThreshold: 3 } as DictationConfig['postProcessing'],
+    postProcessing: { enabled: false, provider: 'openai', apiKey: '', model: 'gpt-4o-mini', fillerRemoval: true, stutterCollapse: true, includeNoteContext: true, autoLearnCorrections: true, fuzzyCorrection: true, dictionaryInPrompt: true, skipShortTranscriptions: true, shortTextThreshold: 3 } as DictationConfig['postProcessing'],
     dictionary: [],
     hotkey: 'Control+D',
     enabled: false,
@@ -133,79 +134,42 @@ export const useDictationStore = create<DictationState>()(
     setClient: (client) => {
       coordinatorClient = client;
 
-      if (serverStatusCleanup) serverStatusCleanup();
-      serverStatusCleanup = window.electronAPI.onCoordinatorNotification(
-        'dictation/server-status-changed',
-        (data: DictationServerInfo) => {
-          set({ serverStatus: data.status });
-        },
-      );
+      for (const cleanup of listenerCleanups) cleanup();
+      listenerCleanups = [];
 
-      if (downloadProgressCleanup) downloadProgressCleanup();
-      downloadProgressCleanup = window.electronAPI.onCoordinatorNotification(
-        'dictation/download-progress',
-        (data: DownloadProgress) => {
-          set({ downloadProgress: data });
-        },
-      );
+      const on = (channel: string, handler: (...args: any[]) => void) => {
+        listenerCleanups.push(window.electronAPI.onCoordinatorNotification(channel, handler));
+      };
 
-      if (downloadCompleteCleanup) downloadCompleteCleanup();
-      downloadCompleteCleanup = window.electronAPI.onCoordinatorNotification(
-        'dictation/download-complete',
-        () => {
-          set({ downloadProgress: null });
-          get().refreshModels();
-        },
-      );
-
-      if (downloadErrorCleanup) downloadErrorCleanup();
-      downloadErrorCleanup = window.electronAPI.onCoordinatorNotification(
-        'dictation/download-error',
-        () => {
-          set({ downloadProgress: null });
-        },
-      );
-
-      if (hotkeyPressedCleanup) hotkeyPressedCleanup();
-      hotkeyPressedCleanup = window.electronAPI.onCoordinatorNotification(
-        'dictation/hotkey-pressed',
-        () => {
-          get().toggleRecording();
-        },
-      );
-
-      if (hotkeyFailedCleanup) hotkeyFailedCleanup();
-      hotkeyFailedCleanup = window.electronAPI.onCoordinatorNotification(
-        'dictation/hotkey-registration-failed',
-        (data: { hotkey: string; error: string }) => {
-          showGlobalToast({ description: `Hotkey registration failed: ${data.error}`, variant: 'error' });
-        },
-      );
-
-      if (gpuDownloadProgressCleanup) gpuDownloadProgressCleanup();
-      gpuDownloadProgressCleanup = window.electronAPI.onCoordinatorNotification(
-        'dictation/gpu-binary-download-progress',
-        (data: GpuDownloadProgress) => {
-          set({ gpuBinaryDownloadProgress: data });
-        },
-      );
-
-      if (gpuDownloadCompleteCleanup) gpuDownloadCompleteCleanup();
-      gpuDownloadCompleteCleanup = window.electronAPI.onCoordinatorNotification(
-        'dictation/gpu-binary-download-complete',
-        () => {
-          set({ gpuBinaryDownloading: false, gpuBinaryDownloaded: true, gpuBinaryDownloadProgress: null });
-        },
-      );
-
-      if (gpuDownloadErrorCleanup) gpuDownloadErrorCleanup();
-      gpuDownloadErrorCleanup = window.electronAPI.onCoordinatorNotification(
-        'dictation/gpu-binary-download-error',
-        (data: { error: string }) => {
-          set({ gpuBinaryDownloading: false, gpuBinaryDownloadProgress: null });
-          showGlobalToast({ description: `GPU binary download failed: ${data.error}`, variant: 'error' });
-        },
-      );
+      on('dictation/server-status-changed', (data: DictationServerInfo) => {
+        set({ serverStatus: data.status });
+      });
+      on('dictation/download-progress', (data: DownloadProgress) => {
+        set({ downloadProgress: data });
+      });
+      on('dictation/download-complete', () => {
+        set({ downloadProgress: null });
+        get().refreshModels();
+      });
+      on('dictation/download-error', () => {
+        set({ downloadProgress: null });
+      });
+      on('dictation/hotkey-pressed', () => {
+        get().toggleRecording();
+      });
+      on('dictation/hotkey-registration-failed', (data: { hotkey: string; error: string }) => {
+        showGlobalToast({ description: `Hotkey registration failed: ${data.error}`, variant: 'error' });
+      });
+      on('dictation/gpu-binary-download-progress', (data: GpuDownloadProgress) => {
+        set({ gpuBinaryDownloadProgress: data });
+      });
+      on('dictation/gpu-binary-download-complete', () => {
+        set({ gpuBinaryDownloading: false, gpuBinaryDownloaded: true, gpuBinaryDownloadProgress: null });
+      });
+      on('dictation/gpu-binary-download-error', (data: { error: string }) => {
+        set({ gpuBinaryDownloading: false, gpuBinaryDownloadProgress: null });
+        showGlobalToast({ description: `GPU binary download failed: ${data.error}`, variant: 'error' });
+      });
 
       client.call('dictation/server-status').then((info) => {
         set({ serverStatus: info.status });
@@ -441,6 +405,11 @@ export const useDictationStore = create<DictationState>()(
         processorOptions: { sampleRate: nativeSampleRate },
       });
 
+      analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 64;
+      analyserNode.smoothingTimeConstant = 0.4;
+      source.connect(analyserNode);
+
       workletNode.port.onmessage = async (e: MessageEvent<{ samples: ArrayBuffer }>) => {
         set({ status: 'transcribing' });
         cleanupMedia();
@@ -485,21 +454,28 @@ export const useDictationStore = create<DictationState>()(
                 insertTextIntoElement(target, finalText);
               }
             }
-          } catch {
-            const fallbackText = rawText;
+          } catch (ppErr) {
+            console.error('[Dictation] post-process catch:', ppErr);
             if (isCodeMirror && insertTextCallback) {
-              const range = insertTextCallback(fallbackText);
+              const range = insertTextCallback(rawText);
               if (range && get().postProcessing.autoLearnCorrections && onTextInsertedCallback) {
-                onTextInsertedCallback(fallbackText, range.from, range.to);
+                onTextInsertedCallback(rawText, range.from, range.to);
               }
             } else if (target && !isCodeMirror) {
-              insertTextIntoElement(target, fallbackText);
+              insertTextIntoElement(target, rawText);
             }
+            const isTimeout = ppErr instanceof Error && (ppErr.message.includes('timed out') || ppErr.message.includes('timeout'));
+            showGlobalToast({
+              description: isTimeout
+                ? 'Post-processing timed out\nRaw text inserted'
+                : 'Post-processing failed\nRaw text inserted',
+              variant: 'default',
+              persistent: true,
+            });
           }
 
           set({ status: 'idle', error: null });
-        } catch (err) {
-          console.error('[Dictation] Transcription failed:', err);
+        } catch {
           set({ status: 'error', error: 'Transcription failed' });
           showGlobalToast({ description: 'Transcription failed', variant: 'error' });
         }

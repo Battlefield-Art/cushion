@@ -466,7 +466,6 @@ export function EditorPanel({
             openFile(resolvedPath, '');
             return;
           }
-          // Skip server fetch if the file is already open
           if (useWorkspaceStore.getState().openFiles.has(resolvedPath)) {
             openFile(resolvedPath, '');
             return;
@@ -538,13 +537,13 @@ export function EditorPanel({
         />
       )}
 
+      <div className="relative flex-1 min-h-0 min-w-0">
       <div
-        className="relative flex-1 min-h-0 min-w-0 overflow-auto rounded-tl-lg thin-scrollbar"
+        className="absolute inset-0 overflow-auto rounded-tl-lg thin-scrollbar"
         ref={editorContainerRef}
         data-editor-scroll-container
         style={{ background: 'var(--md-bg, var(--background))' }}
       >
-        <RecordingOverlay />
         {Array.from(openFiles.entries()).map(([fp]) => {
           const isActive = fp === currentFile;
           const resolved = getViewForFile(fp);
@@ -620,6 +619,8 @@ export function EditorPanel({
             )}
           </div>
         )}
+      </div>
+      <RecordingOverlay />
       </div>
 
       <ExportOptionsDialog

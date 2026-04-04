@@ -1,6 +1,3 @@
-import http from 'http';
-import https from 'https';
-import { URL } from 'url';
 import type { DictationConfigManager } from './dictation-config';
 import { applyFuzzyCorrection } from './fuzzy-correct';
 import { applyTextCleanup } from './text-cleanup';
@@ -15,7 +12,7 @@ RULES:
 - Preserve the speaker's voice, tone, vocabulary, and intent
 - Preserve technical terms, proper nouns, names, and jargon exactly as spoken
 
-Self-corrections ("wait no", "I meant", "scratch that"): use only the corrected version. "Actually" used for emphasis is NOT a correction.
+Self-corrections ("wait no", "I meant", "scratch that", and equivalents in any language): remove the mistake entirely and keep ONLY the corrected version. "Actually" used for emphasis is NOT a correction.
 Spoken punctuation ("period", "comma", "new line"): convert to symbols. Use context to distinguish commands from literal mentions.
 Numbers & dates: standard written forms (January 15, 2026 / $300 / 5:30 PM). Small conversational numbers can stay as words.
 Broken phrases: reconstruct the speaker's likely intent from context. Never output a polished sentence that says nothing coherent.
@@ -47,9 +44,10 @@ function isHallucination(text: string): boolean {
   );
 }
 
+const wordSegmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
+
 function countWords(text: string): number {
-  const segmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
-  return [...segmenter.segment(text)].filter(s => s.isWordLike).length;
+  return [...wordSegmenter.segment(text)].filter(s => s.isWordLike).length;
 }
 
 function buildPrompt(dictionary: string[], noteContext?: string): string {
@@ -63,86 +61,66 @@ function buildPrompt(dictionary: string[], noteContext?: string): string {
   return prompt;
 }
 
-interface ResolvedEndpoint {
-  url: URL;
-  headers: Record<string, string>;
+interface LLMRequest {
+  provider: 'openai' | 'ollama';
+  model: string;
+  systemPrompt: string;
+  userText: string;
+  baseUrl?: string;
+  apiKey?: string;
+  thinking?: boolean;
 }
 
-function resolveEndpoint(
-  provider: 'openai' | 'ollama',
-  baseUrl?: string,
-  apiKey?: string,
-): ResolvedEndpoint {
+async function callLLM(req: LLMRequest): Promise<string> {
+  const messages = [
+    { role: 'system', content: req.systemPrompt },
+    { role: 'user', content: req.userText },
+  ];
+
+  let url: string;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  let url: URL;
+  let body: string;
+  let extractContent: (json: Record<string, unknown>) => string | undefined;
 
-  switch (provider) {
-    case 'openai':
-      url = new URL('https://api.openai.com/v1/chat/completions');
-      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-      break;
-    case 'ollama':
-      url = new URL(baseUrl || 'http://localhost:11434');
-      url.pathname = '/v1/chat/completions';
-      break;
-  }
-
-  return { url, headers };
-}
-
-function callLLM(
-  endpoint: ResolvedEndpoint,
-  model: string,
-  systemPrompt: string,
-  userText: string,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userText },
-      ],
+  if (req.provider === 'ollama') {
+    const base = new URL(req.baseUrl || 'http://localhost:11434');
+    base.pathname = '/api/chat';
+    url = base.toString();
+    body = JSON.stringify({
+      model: req.model,
+      messages,
+      stream: false,
+      think: req.thinking ?? false,
+    });
+    extractContent = (json) =>
+      (json.message as { content?: string })?.content?.trim();
+  } else {
+    url = req.baseUrl || 'https://api.openai.com/v1/chat/completions';
+    if (req.apiKey) headers['Authorization'] = `Bearer ${req.apiKey}`;
+    body = JSON.stringify({
+      model: req.model,
+      messages,
       temperature: 0.3,
     });
+    extractContent = (json) =>
+      ((json.choices as { message?: { content?: string } }[])?.[0])?.message?.content?.trim();
+  }
 
-    const transport = endpoint.url.protocol === 'https:' ? https : http;
-    const req = transport.request(
-      endpoint.url,
-      {
-        method: 'POST',
-        headers: { ...endpoint.headers, 'Content-Length': Buffer.byteLength(body) },
-      },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(data);
-            if (json.error) {
-              reject(new Error(json.error.message || 'LLM API error'));
-              return;
-            }
-            const content = json.choices?.[0]?.message?.content?.trim();
-            if (!content) {
-              reject(new Error('Empty response from LLM'));
-              return;
-            }
-            resolve(content);
-          } catch (err) {
-            reject(err);
-          }
-        });
-      },
-    );
-
-    req.on('error', reject);
-    req.setTimeout(30000, () => {
-      req.destroy(new Error('LLM request timed out'));
-    });
-    req.write(body);
-    req.end();
+  const timeoutMs = req.thinking ? 90_000 : 45_000;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body,
+    signal: AbortSignal.timeout(timeoutMs),
   });
+
+  const json = await res.json();
+  if (json.error) {
+    throw new Error(typeof json.error === 'string' ? json.error : json.error.message || 'LLM API error');
+  }
+  const content = extractContent(json);
+  if (!content) throw new Error('Empty response from LLM');
+  return content;
 }
 
 export class PostProcessor {
@@ -150,11 +128,9 @@ export class PostProcessor {
 
   async process(rawText: string, language?: string, noteContext?: string): Promise<{ text: string; wasProcessed: boolean }> {
     const trimmed = rawText.trim();
-    console.log('[PostProcessor] RAW →', trimmed);
     if (!trimmed) return { text: '', wasProcessed: false };
 
     if (isHallucination(trimmed)) {
-      console.log('[PostProcessor] hallucination caught, discarded');
       return { text: '', wasProcessed: true };
     }
 
@@ -166,7 +142,6 @@ export class PostProcessor {
     if (config.postProcessing.fuzzyCorrection && config.dictionary.length > 0) {
       const fuzzyResult = applyFuzzyCorrection(text, config.dictionary);
       if (fuzzyResult !== text) {
-        console.log('[PostProcessor] POST FUZZY →', fuzzyResult);
         text = fuzzyResult;
         wasProcessed = true;
       }
@@ -176,7 +151,6 @@ export class PostProcessor {
     if (fillerRemoval || stutterCollapse) {
       text = applyTextCleanup(text, { fillerRemoval, stutterCollapse, language });
       if (text !== trimmed) {
-        console.log('[PostProcessor] CLEANED UP →', text);
         wasProcessed = true;
       }
       if (!text) return { text: '', wasProcessed: true };
@@ -185,7 +159,6 @@ export class PostProcessor {
     if (config.postProcessing.skipShortTranscriptions) {
       const wordCount = countWords(text);
       if (wordCount <= config.postProcessing.shortTextThreshold) {
-        console.log(`[PostProcessor] short text (${wordCount} words), skipping LLM`);
         return { text, wasProcessed };
       }
     }
@@ -200,12 +173,18 @@ export class PostProcessor {
 
     try {
       const { provider } = config.postProcessing;
-      const endpoint = resolveEndpoint(provider, config.postProcessing.baseUrl, config.postProcessing.apiKey);
-      const cleaned = await callLLM(endpoint, config.postProcessing.model, systemPrompt, text);
-      console.log('[PostProcessor] POST AI →', cleaned);
+      const cleaned = await callLLM({
+        provider,
+        model: config.postProcessing.model,
+        systemPrompt,
+        userText: text,
+        baseUrl: config.postProcessing.baseUrl,
+        apiKey: config.postProcessing.apiKey,
+        thinking: config.postProcessing.thinking,
+      });
       return { text: cleaned, wasProcessed: true };
     } catch (err) {
-      console.error('[PostProcessor] LLM call failed, falling back to cleaned text:', err);
+      if (err instanceof Error && err.name === 'TimeoutError') throw err;
       return { text, wasProcessed };
     }
   }
