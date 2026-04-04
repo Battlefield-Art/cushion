@@ -68,6 +68,7 @@ let coordinatorClient: CoordinatorClient | null = null;
 let mediaStream: MediaStream | null = null;
 let audioContext: AudioContext | null = null;
 let workletNode: AudioWorkletNode | null = null;
+let analyserNode: AnalyserNode | null = null;
 let insertTextCallback: ((text: string) => { from: number; to: number } | void) | null = null;
 let getNoteContextCallback: (() => string) | null = null;
 let onTextInsertedCallback: ((originalText: string, from: number, to: number) => void) | null = null;
@@ -95,7 +96,15 @@ export function setOnTextInsertedCallback(cb: ((originalText: string, from: numb
   onTextInsertedCallback = cb;
 }
 
+export function getAnalyserNode(): AnalyserNode | null {
+  return analyserNode;
+}
+
 function cleanupMedia() {
+  if (analyserNode) {
+    try { analyserNode.disconnect(); } catch {}
+    analyserNode = null;
+  }
   if (workletNode) {
     try { workletNode.disconnect(); } catch {}
     workletNode = null;
@@ -441,6 +450,11 @@ export const useDictationStore = create<DictationState>()(
         processorOptions: { sampleRate: nativeSampleRate },
       });
 
+      analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 64;
+      analyserNode.smoothingTimeConstant = 0.4;
+      source.connect(analyserNode);
+
       workletNode.port.onmessage = async (e: MessageEvent<{ samples: ArrayBuffer }>) => {
         set({ status: 'transcribing' });
         cleanupMedia();
@@ -485,7 +499,7 @@ export const useDictationStore = create<DictationState>()(
                 insertTextIntoElement(target, finalText);
               }
             }
-          } catch {
+          } catch (ppErr) {
             const fallbackText = rawText;
             if (isCodeMirror && insertTextCallback) {
               const range = insertTextCallback(fallbackText);
@@ -495,6 +509,13 @@ export const useDictationStore = create<DictationState>()(
             } else if (target && !isCodeMirror) {
               insertTextIntoElement(target, fallbackText);
             }
+            const isTimeout = ppErr instanceof Error && ppErr.message.includes('timed out');
+            showGlobalToast({
+              description: isTimeout
+                ? 'Post-processing timed out — raw text inserted'
+                : 'Post-processing failed — raw text inserted',
+              variant: 'default',
+            });
           }
 
           set({ status: 'idle', error: null });

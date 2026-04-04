@@ -1,0 +1,95 @@
+const OLLAMA_BASE = 'http://localhost:11434';
+
+export interface LocalOllamaModel {
+  name: string;
+  sizeMb: number;
+  parameterSize: string;
+}
+
+export async function fetchLocalOllamaModels(baseUrl = OLLAMA_BASE): Promise<LocalOllamaModel[]> {
+  try {
+    const res = await fetch(`${baseUrl}/api/tags`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const models: LocalOllamaModel[] = [];
+    for (const m of data.models ?? []) {
+      models.push({
+        name: m.name as string,
+        sizeMb: Math.round((m.size as number) / (1024 * 1024)),
+        parameterSize: (m.details?.parameter_size as string) ?? '',
+      });
+    }
+    return models;
+  } catch {
+    return [];
+  }
+}
+
+export interface PullProgress {
+  status: string;
+  error?: string;
+  total?: number;
+  completed?: number;
+  percent: number;
+}
+
+export function pullOllamaModel(
+  modelId: string,
+  onProgress: (p: PullProgress) => void,
+  baseUrl = OLLAMA_BASE,
+): { cancel: () => void; done: Promise<boolean> } {
+  const controller = new AbortController();
+
+  const done = (async () => {
+    try {
+      const res = await fetch(`${baseUrl}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: modelId, stream: true }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) return false;
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let lastStatus = '';
+      let success = false;
+      let lineCount = 0;
+
+      while (true) {
+        const { done: streamDone, value } = await reader.read();
+        if (streamDone) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          lineCount++;
+          try {
+            const json = JSON.parse(line);
+            if (json.error) {
+              onProgress({ status: 'error', error: json.error, percent: 0 });
+              return false;
+            }
+            lastStatus = json.status ?? '';
+            const total = json.total ?? 0;
+            const completed = json.completed ?? 0;
+            const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+            onProgress({ status: lastStatus, total, completed, percent });
+            if (lastStatus === 'success') success = true;
+          } catch { /* skip malformed lines */ }
+        }
+      }
+
+      return success || lastStatus.includes('up to date');
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return false;
+      return false;
+    }
+  })();
+
+  return { cancel: () => controller.abort(), done };
+}

@@ -50,6 +50,19 @@ export interface DictationServerInfo {
   modelName: DictationModelName | null;
 }
 
+export type OllamaModelCategory = 'Qwen' | 'Gemma' | 'NVIDIA';
+
+export interface OllamaModelInfo {
+  id: string;
+  label: string;
+  category: OllamaModelCategory;
+  parameterSize: string;
+  sizeMb: number;
+  description: string;
+  isRecommended?: boolean;
+  supportsThinking?: boolean;
+}
+
 export interface DictationConfig {
   enabled: boolean;
   selectedModel: DictationModelName;
@@ -68,6 +81,7 @@ export interface DictationConfig {
     dictionaryInPrompt: boolean;
     skipShortTranscriptions: boolean;
     shortTextThreshold: number;
+    thinking?: boolean;
   };
   dictionary: string[];
   accelerator?: 'cpu' | 'gpu';

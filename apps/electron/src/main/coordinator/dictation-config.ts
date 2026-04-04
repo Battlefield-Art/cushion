@@ -75,6 +75,7 @@ function migrateConfig(raw: Record<string, unknown>): DictationConfig {
 export class DictationConfigManager {
   private configPath: string;
   private cache: DictationConfig | null = null;
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor() {
     this.configPath = path.join(app.getPath('userData'), CONFIG_FILE);
@@ -102,7 +103,11 @@ export class DictationConfigManager {
 
   async write(config: DictationConfig): Promise<void> {
     this.cache = config;
-    await fs.writeFile(this.configPath, JSON.stringify(config, null, 2), 'utf-8');
+    const task = this.writeQueue.then(() =>
+      fs.writeFile(this.configPath, JSON.stringify(config, null, 2), 'utf-8'),
+    );
+    this.writeQueue = task.catch(() => {});
+    await task;
   }
 
   async getDictionary(): Promise<string[]> {
