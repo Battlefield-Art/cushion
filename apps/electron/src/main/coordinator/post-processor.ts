@@ -47,9 +47,10 @@ function isHallucination(text: string): boolean {
   );
 }
 
+const wordSegmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
+
 function countWords(text: string): number {
-  const segmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
-  return [...segmenter.segment(text)].filter(s => s.isWordLike).length;
+  return [...wordSegmenter.segment(text)].filter(s => s.isWordLike).length;
 }
 
 function buildPrompt(dictionary: string[], noteContext?: string): string {

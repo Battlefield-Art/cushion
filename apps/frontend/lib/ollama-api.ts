@@ -55,7 +55,6 @@ export function pullOllamaModel(
       let buffer = '';
       let lastStatus = '';
       let success = false;
-      let lineCount = 0;
 
       while (true) {
         const { done: streamDone, value } = await reader.read();
@@ -67,7 +66,6 @@ export function pullOllamaModel(
 
         for (const line of lines) {
           if (!line.trim()) continue;
-          lineCount++;
           try {
             const json = JSON.parse(line);
             if (json.error) {
@@ -80,7 +78,7 @@ export function pullOllamaModel(
             const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
             onProgress({ status: lastStatus, total, completed, percent });
             if (lastStatus === 'success') success = true;
-          } catch { /* skip malformed lines */ }
+          } catch {}
         }
       }
 

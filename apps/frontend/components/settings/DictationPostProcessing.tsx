@@ -17,7 +17,6 @@ export function DictationPostProcessing() {
   const [apiKey, setApiKey] = useState(storePostProcessing.apiKey || '');
   const [baseUrl, setBaseUrl] = useState(storePostProcessing.baseUrl || '');
   const [model, setModel] = useState(storePostProcessing.model);
-  const [showKey, setShowKey] = useState(false);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const [fillerRemoval, setFillerRemoval] = useState(storePostProcessing.fillerRemoval ?? true);
   const [stutterCollapse, setStutterCollapse] = useState(storePostProcessing.stutterCollapse ?? true);
@@ -188,7 +187,6 @@ export function DictationPostProcessing() {
           apiKey={apiKey}
           baseUrl={baseUrl}
           model={model}
-          showKey={showKey}
           thinking={thinking}
           onProviderChange={handleProviderChange}
           onApiKeyChange={setApiKey}
@@ -197,7 +195,6 @@ export function DictationPostProcessing() {
           onBaseUrlBlur={handleBaseUrlBlur}
           onModelChange={(m: string) => { setModel(m); updatePostProcessing({ model: m }); }}
           onThinkingChange={(v: boolean) => { setThinking(v); updatePostProcessing({ thinking: v }); }}
-          onToggleShowKey={() => setShowKey(!showKey)}
           onClose={() => setModelDialogOpen(false)}
         />
       )}
@@ -210,7 +207,6 @@ interface ProcessingModelDialogProps {
   apiKey: string;
   baseUrl: string;
   model: string;
-  showKey: boolean;
   thinking: boolean;
   onProviderChange: (provider: 'openai' | 'ollama') => void;
   onApiKeyChange: (value: string) => void;
@@ -219,7 +215,6 @@ interface ProcessingModelDialogProps {
   onBaseUrlBlur: () => void;
   onModelChange: (value: string) => void;
   onThinkingChange: (value: boolean) => void;
-  onToggleShowKey: () => void;
   onClose: () => void;
 }
 
@@ -237,7 +232,6 @@ function ProcessingModelDialog({
   apiKey,
   baseUrl,
   model,
-  showKey,
   thinking,
   onProviderChange,
   onApiKeyChange,
@@ -246,10 +240,10 @@ function ProcessingModelDialog({
   onBaseUrlBlur,
   onModelChange,
   onThinkingChange,
-  onToggleShowKey,
   onClose,
 }: ProcessingModelDialogProps) {
   const [tab, setTab] = useState<Tab>('local');
+  const [showKey, setShowKey] = useState(false);
   const [customModel, setCustomModel] = useState('');
   const [localModels, setLocalModels] = useState<LocalOllamaModel[]>([]);
   const [pulling, setPulling] = useState<PullState | null>(null);
@@ -363,7 +357,6 @@ function ProcessingModelDialog({
           Choose an LLM to clean up transcribed text.
         </p>
 
-        {/* ── Tabs + thinking toggle ── */}
         <div className="flex items-center px-5 mb-4">
           <div className="flex gap-1">
             {([['local', 'Local'], ['cloud', 'Cloud']] as const).map(([key, label]) => (
@@ -409,7 +402,6 @@ function ProcessingModelDialog({
           )}
         </div>
 
-        {/* ── Local tab ── */}
         {tab === 'local' && (
           <div className="px-5 pb-5 space-y-5 max-h-[55vh] overflow-y-auto thin-scrollbar">
             {OLLAMA_MODEL_CATEGORIES.map((cat) => {
@@ -466,18 +458,14 @@ function ProcessingModelDialog({
                             : 'border-[var(--border)] hover:border-[var(--border-subtle)] hover:bg-[var(--overlay-10)]',
                         )}
                       >
-                        <div className="flex gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm text-foreground">{baseName}</span>
-                              {isSelected && (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-[var(--accent-primary)] bg-[var(--accent-primary-12)] px-1.5 py-0.5 rounded">
-                                  <Check size={10} />
-                                  Active
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-foreground">{baseName}</span>
+                          {isSelected && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-[var(--accent-primary)] bg-[var(--accent-primary-12)] px-1.5 py-0.5 rounded">
+                              <Check size={10} />
+                              Active
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center mt-1.5 text-[11px] text-foreground-faint">
                           {m.parameterSize && <span>{m.parameterSize}</span>}
@@ -491,7 +479,6 @@ function ProcessingModelDialog({
               </div>
             )}
 
-            {/* ── Custom model ── */}
             <div>
               <div className="text-[11px] font-medium text-foreground-faint uppercase tracking-wider mb-2">Custom</div>
               <div
@@ -528,7 +515,6 @@ function ProcessingModelDialog({
           </div>
         )}
 
-        {/* ── Cloud tab ── */}
         {tab === 'cloud' && (
           <div className="px-5 pb-5 space-y-4">
             <div>
@@ -544,7 +530,7 @@ function ProcessingModelDialog({
                 />
                 <button
                   type="button"
-                  onClick={onToggleShowKey}
+                  onClick={() => setShowKey(!showKey)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-foreground-muted hover:text-foreground transition-colors"
                   aria-label={showKey ? 'Hide API key' : 'Show API key'}
                 >
@@ -625,29 +611,25 @@ function OllamaModelCard({
         isPulling && 'opacity-100 border-[var(--border)]',
       )}
     >
-      <div className="flex gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-sm text-foreground">{model.label}</span>
+      <div className="flex items-center gap-2">
+        <span className="font-medium text-sm text-foreground">{model.label}</span>
 
-            {isSelected && isPulled && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-[var(--accent-primary)] bg-[var(--accent-primary-12)] px-1.5 py-0.5 rounded">
-                <Check size={10} />
-                Active
-              </span>
-            )}
+        {isSelected && isPulled && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-[var(--accent-primary)] bg-[var(--accent-primary-12)] px-1.5 py-0.5 rounded">
+            <Check size={10} />
+            Active
+          </span>
+        )}
 
-            {model.isRecommended && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-[var(--accent-primary)] bg-[var(--accent-primary-12)] px-1.5 py-0.5 rounded">
-                <Star size={10} />
-                Recommended
-              </span>
-            )}
-          </div>
-
-          <p className="text-xs text-foreground-muted mt-0.5">{model.description}</p>
-        </div>
+        {model.isRecommended && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-[var(--accent-primary)] bg-[var(--accent-primary-12)] px-1.5 py-0.5 rounded">
+            <Star size={10} />
+            Recommended
+          </span>
+        )}
       </div>
+
+      <p className="text-xs text-foreground-muted mt-0.5">{model.description}</p>
 
       <div className="flex items-center mt-2 text-[11px] text-foreground-faint">
         <span>{model.parameterSize}</span>

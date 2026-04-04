@@ -40,7 +40,6 @@ function migrateWhisperModel(name: string): DictationModelName {
 }
 
 function migrateConfig(raw: Record<string, unknown>): DictationConfig {
-  // Already migrated — no legacy selectedEngine field present
   if (raw.selectedModel && typeof raw.selectedModel === 'string' && !raw.selectedEngine) {
     return {
       ...DEFAULT_CONFIG,
@@ -51,7 +50,6 @@ function migrateConfig(raw: Record<string, unknown>): DictationConfig {
     };
   }
 
-  // Legacy format: selectedEngine + selectedModel (WhisperModelName) + selectedSherpaModel
   const engine = raw.selectedEngine as string | undefined;
   const whisperModel = raw.selectedModel as string | undefined;
   const sherpaModel = raw.selectedSherpaModel as string | undefined;

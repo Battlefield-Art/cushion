@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Square } from 'lucide-react';
-import { useDictationStore } from '@/stores/dictationStore';
-import { getAnalyserNode } from '@/stores/dictationStore';
+import { useDictationStore, getAnalyserNode } from '@/stores/dictationStore';
 
 const BAR_COUNT = 9;
 const NOISE_GATE = 0.22;
@@ -18,9 +17,9 @@ export function RecordingOverlay() {
   const loadingPhaseRef = useRef(0);
   const smoothedRef = useRef<number[]>(new Array(BAR_COUNT).fill(0));
 
-  const setBarsRef = useCallback((i: number) => (el: HTMLDivElement | null) => {
+  const setBarsRef = (i: number) => (el: HTMLDivElement | null) => {
     barsRef.current[i] = el;
-  }, []);
+  };
 
   // Timer
   useEffect(() => {
@@ -48,10 +47,8 @@ export function RecordingOverlay() {
             const gated = raw < NOISE_GATE ? 0 : (raw - NOISE_GATE) / (1 - NOISE_GATE);
             const shaped = Math.min(1, Math.pow(gated * GAIN, CURVE));
 
-            // Temporal smoothing (like Handy: prev * 0.7 + new * 0.3)
             smoothedRef.current[i] = smoothedRef.current[i] * SMOOTHING + shaped * (1 - SMOOTHING);
 
-            // Spatial smoothing across neighbors
             let val = smoothedRef.current[i];
             if (i > 0 && i < BAR_COUNT - 1) {
               val = val * 0.7 + smoothedRef.current[i - 1] * 0.15 + smoothedRef.current[i + 1] * 0.15;
@@ -85,7 +82,7 @@ export function RecordingOverlay() {
       };
       loadingPhaseRef.current = 0;
       rafRef.current = requestAnimationFrame(animate);
-      return () => cancelAnimationFrame(animate);
+      return () => cancelAnimationFrame(rafRef.current);
     }
   }, [status]);
 
@@ -105,7 +102,6 @@ export function RecordingOverlay() {
     <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-overlay flex items-center gap-2.5 pl-3 pr-2 py-1.5 rounded-full bg-[var(--color-base-100)] animate-in fade-in duration-300"
       style={{ minWidth: 160 }}
     >
-      {/* Bars */}
       <div className="flex items-end justify-center gap-[3px] h-5 shrink-0">
         {Array.from({ length: BAR_COUNT }, (_, i) => (
           <div
@@ -124,12 +120,10 @@ export function RecordingOverlay() {
         ))}
       </div>
 
-      {/* Label or timer */}
       <span className="text-[11px] font-mono tabular-nums select-none" style={{ color: 'var(--color-base-50)' }}>
         {label || `${minutes}:${seconds}`}
       </span>
 
-      {/* Stop button — only during recording */}
       {status === 'recording' && (
         <button
           onMouseDown={(e) => e.preventDefault()}

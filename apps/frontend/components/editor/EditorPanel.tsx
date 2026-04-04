@@ -466,7 +466,6 @@ export function EditorPanel({
             openFile(resolvedPath, '');
             return;
           }
-          // Skip server fetch if the file is already open
           if (useWorkspaceStore.getState().openFiles.has(resolvedPath)) {
             openFile(resolvedPath, '');
             return;

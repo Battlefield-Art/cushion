@@ -500,14 +500,13 @@ export const useDictationStore = create<DictationState>()(
               }
             }
           } catch (ppErr) {
-            const fallbackText = rawText;
             if (isCodeMirror && insertTextCallback) {
-              const range = insertTextCallback(fallbackText);
+              const range = insertTextCallback(rawText);
               if (range && get().postProcessing.autoLearnCorrections && onTextInsertedCallback) {
-                onTextInsertedCallback(fallbackText, range.from, range.to);
+                onTextInsertedCallback(rawText, range.from, range.to);
               }
             } else if (target && !isCodeMirror) {
-              insertTextIntoElement(target, fallbackText);
+              insertTextIntoElement(target, rawText);
             }
             const isTimeout = ppErr instanceof Error && ppErr.message.includes('timed out');
             showGlobalToast({
