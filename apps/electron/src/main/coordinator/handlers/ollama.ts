@@ -4,6 +4,18 @@ const OLLAMA_BASE = 'http://localhost:11434';
 
 let pullController: AbortController | null = null;
 
+export async function handleOllamaPing(
+  params: RPCParams<'ollama/ping'>,
+): Promise<RPCResult<'ollama/ping'>> {
+  const baseUrl = params.baseUrl || OLLAMA_BASE;
+  try {
+    const res = await fetch(`${baseUrl}/api/tags`);
+    return { reachable: res.ok };
+  } catch {
+    return { reachable: false };
+  }
+}
+
 export async function handleOllamaListModels(
   params: RPCParams<'ollama/list-models'>,
 ): Promise<RPCResult<'ollama/list-models'>> {

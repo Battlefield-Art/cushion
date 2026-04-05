@@ -276,6 +276,10 @@ export interface RPCMethodMap {
     result: { success: boolean };
   };
   // Ollama
+  'ollama/ping': {
+    params: { baseUrl?: string };
+    result: { reachable: boolean };
+  };
   'ollama/list-models': {
     params: { baseUrl?: string };
     result: { models: Array<{ name: string; sizeMb: number; parameterSize: string }> };

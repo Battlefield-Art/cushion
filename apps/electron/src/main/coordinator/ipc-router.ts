@@ -47,6 +47,7 @@ import { SherpaManager } from './sherpa-manager';
 import { SherpaBinaryManager } from './sherpa-binary-manager';
 
 import {
+  handleOllamaPing,
   handleOllamaListModels,
   handleOllamaPull,
   handleOllamaCancelPull,
@@ -291,6 +292,10 @@ export async function initCoordinator(mainWindow: BrowserWindow) {
   });
 
   // Ollama handlers
+  ipcMain.handle('coordinator:ollama/ping', async (_event, params: RPCParams<'ollama/ping'>) => {
+    return handleOllamaPing(params);
+  });
+
   ipcMain.handle('coordinator:ollama/list-models', async (_event, params: RPCParams<'ollama/list-models'>) => {
     return handleOllamaListModels(params);
   });

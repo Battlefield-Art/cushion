@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeImage, session, shell } from 'electron';
 import './pdf-export';
 import { join } from 'path';
 
@@ -143,6 +143,10 @@ app.on('second-instance', (_event, commandLine) => {
 });
 
 app.whenReady().then(async () => {
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === 'media');
+  });
+
   const cliPath = extractPathArg(process.argv.slice(1));
   if (cliPath) {
     pendingOpenPath = cliPath;

@@ -2,8 +2,8 @@ const OLLAMA_BASE = 'http://localhost:11434';
 
 export async function pingOllama(baseUrl = OLLAMA_BASE): Promise<boolean> {
   if (window.electronAPI) {
-    const result = await window.electronAPI.coordinatorInvoke('ollama/list-models', { baseUrl });
-    return result.models !== undefined;
+    const result = await window.electronAPI.coordinatorInvoke('ollama/ping', { baseUrl });
+    return result.reachable;
   }
   try {
     const res = await fetch(`${baseUrl}/api/tags`);

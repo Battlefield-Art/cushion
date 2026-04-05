@@ -399,7 +399,7 @@ export const useDictationStore = create<DictationState>()(
 
       audioContext = new AudioContext();
       const nativeSampleRate = audioContext.sampleRate;
-      await audioContext.audioWorklet.addModule('/pcm-recorder-worklet.js');
+      await audioContext.audioWorklet.addModule(`${import.meta.env.BASE_URL}pcm-recorder-worklet.js`);
       const source = audioContext.createMediaStreamSource(mediaStream);
       workletNode = new AudioWorkletNode(audioContext, 'pcm-recorder-processor', {
         processorOptions: { sampleRate: nativeSampleRate },
