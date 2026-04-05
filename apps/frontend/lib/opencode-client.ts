@@ -11,7 +11,7 @@ type OpenCodeClientOptions = OpencodeClientConfig & {
   directory?: string;
 };
 
-const DEFAULT_OPENCODE_URL = 'http://localhost:14097';
+const DEFAULT_OPENCODE_URL = 'http://127.0.0.1:14097';
 
 export function getOpenCodeBaseUrl() {
   return import.meta.env.VITE_OPENCODE_URL ?? DEFAULT_OPENCODE_URL;
