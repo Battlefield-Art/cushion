@@ -4,7 +4,7 @@ import net from 'node:net';
 import path from 'node:path';
 
 const OPENCODE_PORT = 14_097;
-const CORS_ORIGIN = 'http://localhost:3000';
+const CORS_ORIGIN = app.isPackaged ? '*' : 'http://localhost:3000';
 
 let serverProcess: ChildProcess | null = null;
 
