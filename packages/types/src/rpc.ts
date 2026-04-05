@@ -1,6 +1,8 @@
 import type {
   FileTreeNode,
   FileChange,
+  PandocBinaryStatus,
+  PandocFormat,
 } from './index.js';
 
 export interface TrashItem {
@@ -305,6 +307,24 @@ export interface RPCMethodMap {
     params: void;
     result: { path: string };
   };
+
+  // Pandoc
+  'pandoc/binary-status': {
+    params: void;
+    result: PandocBinaryStatus;
+  };
+  'pandoc/ensure-binary': {
+    params: void;
+    result: { path: string };
+  };
+  'pandoc/cancel-download': {
+    params: void;
+    result: { cancelled: boolean };
+  };
+  'pandoc/export': {
+    params: { markdown: string; title: string; format: PandocFormat; workspacePath: string };
+    result: { success: boolean; path: string | null };
+  };
 }
 
 export interface RPCServerNotificationMap {
@@ -351,6 +371,14 @@ export interface RPCServerNotificationMap {
     completed?: number;
     percent: number;
   };
+
+  'pandoc/download-progress': {
+    downloadedBytes: number;
+    totalBytes: number;
+    percent: number;
+  };
+  'pandoc/download-complete': { path: string };
+  'pandoc/download-error': { error: string };
 }
 
 export type RPCMethodName = keyof RPCMethodMap;

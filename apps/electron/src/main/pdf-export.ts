@@ -1,5 +1,7 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron';
-import { writeFile } from 'fs/promises';
+import { ipcMain, dialog, BrowserWindow, app } from 'electron';
+import { writeFile, unlink } from 'fs/promises';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { PDFDocument, PDFDict, PDFName, PDFString, PDFArray, PDFRef } from 'pdf-lib';
 
 interface PdfExportOptions {
@@ -101,9 +103,26 @@ ipcMain.handle('export:pdf', async (_event, { html, title, options }: ExportPdfP
     webPreferences: { offscreen: true },
   });
 
+  const tmpPath = join(app.getPath('temp'), `cushion-print-${randomUUID()}.html`);
+
   try {
-    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await writeFile(tmpPath, html, 'utf-8');
+    await win.loadFile(tmpPath);
+
+    await win.webContents.executeJavaScript(`
+      new Promise((resolve) => {
+        const imgs = Array.from(document.images);
+        const pending = imgs.filter(i => !i.complete);
+        if (!pending.length) return resolve();
+        let n = pending.length;
+        const done = () => { if (--n <= 0) resolve(); };
+        pending.forEach(i => {
+          i.addEventListener('load', done, { once: true });
+          i.addEventListener('error', done, { once: true });
+        });
+        setTimeout(resolve, 10000);
+      })
+    `);
 
     const pdfBuffer = await win.webContents.printToPDF({
       pageSize: options.pageSize,
@@ -127,5 +146,6 @@ ipcMain.handle('export:pdf', async (_event, { html, title, options }: ExportPdfP
     return { success: false, path: filePath };
   } finally {
     win.destroy();
+    await unlink(tmpPath).catch(() => {});
   }
 });

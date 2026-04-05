@@ -124,3 +124,4 @@ export interface FileChangedOnDiskNotification {
 export * from './rpc.js';
 export * from './config.js';
 export * from './pdf-export.js';
+export * from './pandoc-export.js';

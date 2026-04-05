@@ -1,4 +1,5 @@
-import { marked, Renderer } from 'marked';
+import { marked, Renderer, type Tokens } from 'marked';
+import markedKatex from 'marked-katex-extension';
 import hljs from 'highlight.js/lib/core';
 import javascript from 'highlight.js/lib/languages/javascript';
 import typescript from 'highlight.js/lib/languages/typescript';
@@ -14,6 +15,9 @@ import yaml from 'highlight.js/lib/languages/yaml';
 import markdown from 'highlight.js/lib/languages/markdown';
 import hljsTheme from 'highlight.js/styles/github.css?raw';
 import type { PdfExportOptions } from '@cushion/types';
+import { getSharedCoordinatorClient } from './shared-coordinator-client';
+import { resolveWikiLink } from './wiki-link-resolver';
+import { isRemoteSrc } from './codemirror-wysiwyg/embed-utils';
 
 hljs.registerLanguage('javascript', javascript);
 hljs.registerLanguage('js', javascript);
@@ -37,6 +41,10 @@ hljs.registerLanguage('yml', yaml);
 hljs.registerLanguage('markdown', markdown);
 hljs.registerLanguage('md', markdown);
 
+marked.use(markedKatex({ throwOnError: false, output: 'mathml' }));
+
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp', '.ico', '.avif']);
+
 const MARGIN_MAP: Record<PdfExportOptions['margins'], string> = {
   default: '25mm 20mm',
   narrow: '15mm 10mm',
@@ -47,8 +55,9 @@ export async function exportToPdf(
   markdown: string,
   title: string,
   options: PdfExportOptions,
+  filePaths: string[],
 ): Promise<void> {
-  const html = buildPdfHtml(markdown, title, options);
+  const html = await buildPdfHtml(markdown, title, options, filePaths);
   await window.electronAPI.exportPdf({ html, title, options });
 }
 
@@ -62,11 +71,69 @@ function slugify(text: string): string {
     .trim();
 }
 
-function buildPdfHtml(
+function preprocessWikiImageEmbeds(source: string, filePaths: string[]): string {
+  return source.replace(/!\[\[([^\]]+?)\]\]/g, (_match, inner: string) => {
+    const pipeIdx = inner.lastIndexOf('|');
+    let path = pipeIdx !== -1 ? inner.slice(0, pipeIdx) : inner;
+    const alt = pipeIdx !== -1 ? inner.slice(pipeIdx + 1) : '';
+
+    const hashIdx = path.indexOf('#');
+    if (hashIdx !== -1) path = path.slice(0, hashIdx);
+
+    const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
+    if (!IMAGE_EXTS.has(ext)) return _match;
+
+    const resolved = resolveWikiLink(path, filePaths);
+    const target = resolved.state !== 'empty' && resolved.targets.length > 0
+      ? resolved.targets[0]
+      : path;
+    return `![${alt}](<${target}>)`;
+  });
+}
+
+function fixImagePathsWithSpaces(source: string): string {
+  return source.replace(/!\[([^\]]*)\]\(([^)<][^)]*\s[^)]*)\)/g, (_match, alt: string, url: string) => {
+    return `![${alt}](<${url}>)`;
+  });
+}
+
+async function resolveImagePaths(source: string): Promise<Map<string, string>> {
+  const tokens = marked.lexer(source);
+  const localPaths = new Set<string>();
+  marked.walkTokens(tokens, (token) => {
+    if (token.type === 'image') {
+      const href = (token as Tokens.Image).href;
+      if (href && !isRemoteSrc(href)) localPaths.add(href);
+    }
+  });
+
+  const client = await getSharedCoordinatorClient();
+  const entries = await Promise.allSettled(
+    [...localPaths].map(async (path) => {
+      const { base64, mimeType } = await client.readFileBase64(path);
+      return [path, `data:${mimeType};base64,${base64}`] as const;
+    }),
+  );
+
+  const imageMap = new Map<string, string>();
+  for (const entry of entries) {
+    if (entry.status === 'fulfilled') {
+      imageMap.set(entry.value[0], entry.value[1]);
+    }
+  }
+  return imageMap;
+}
+
+async function buildPdfHtml(
   source: string,
   title: string,
   options: PdfExportOptions,
-): string {
+  filePaths: string[],
+): Promise<string> {
+  source = preprocessWikiImageEmbeds(source, filePaths);
+  source = fixImagePathsWithSpaces(source);
+  const imageMap = await resolveImagePaths(source);
+
   const renderer = new Renderer();
 
   renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
@@ -83,6 +150,12 @@ function buildPdfHtml(
   renderer.heading = ({ text, depth }: { text: string; depth: number }) => {
     const id = slugify(text);
     return `<h${depth} id="${escapeHtml(id)}">${text}</h${depth}>\n`;
+  };
+
+  renderer.image = ({ href, title: imgTitle, text }: Tokens.Image): string => {
+    const src = imageMap.get(href) ?? href;
+    const titleAttr = imgTitle ? ` title="${escapeHtml(imgTitle)}"` : '';
+    return `<img src="${src}" alt="${escapeHtml(text)}"${titleAttr} />`;
   };
 
   const body = marked.parse(source, { async: false, renderer }) as string;

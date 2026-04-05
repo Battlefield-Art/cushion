@@ -14,8 +14,9 @@ import type { WikiLinkNavigateCallback } from '@/lib/codemirror-wysiwyg';
 import { DiffReviewBar } from './DiffReviewBar';
 import { useDiffReviewStore } from '@/stores/diffReviewStore';
 import { exportToPdf } from '@/lib/pdf-export';
+import { exportWithPandoc } from '@/lib/pandoc-export';
 import { ExportOptionsDialog } from './ExportOptionsDialog';
-import type { PdfExportOptions } from '@cushion/types';
+import type { PdfExportOptions, PandocFormat } from '@cushion/types';
 import { getViewForFile } from '@/lib/view-registry';
 import { EditorPanelProvider } from './EditorPanelContext';
 import { RecordingOverlay } from './RecordingOverlay';
@@ -455,7 +456,18 @@ export function EditorPanel({
     const pathParts = currentFile.split(/[/\\]/);
     const fileName = pathParts[pathParts.length - 1];
     const baseName = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
-    await exportToPdf(file.content, baseName, options);
+    await exportToPdf(file.content, baseName, options, filePaths ?? []);
+  }, [currentFile]);
+
+  const handleExportPandoc = useCallback(async (format: PandocFormat) => {
+    setShowExportDialog(false);
+    if (!currentFile) return;
+    const file = useWorkspaceStore.getState().openFiles.get(currentFile);
+    if (!file) return;
+    const pathParts = currentFile.split(/[/\\]/);
+    const fileName = pathParts[pathParts.length - 1];
+    const baseName = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
+    await exportWithPandoc(file.content, baseName, format, filePaths ?? [], workspacePath ?? '');
   }, [currentFile]);
 
   const handleWikiLinkNavigate: WikiLinkNavigateCallback = useCallback(
@@ -626,7 +638,8 @@ export function EditorPanel({
       <ExportOptionsDialog
         isOpen={showExportDialog}
         onClose={() => setShowExportDialog(false)}
-        onExport={handleExportPdf}
+        onExportPdf={handleExportPdf}
+        onExportPandoc={handleExportPandoc}
       />
     </div>
     </EditorPanelProvider>
