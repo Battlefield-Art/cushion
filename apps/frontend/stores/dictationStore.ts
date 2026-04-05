@@ -178,6 +178,7 @@ export const useDictationStore = create<DictationState>()(
       client.call('dictation/dictation-config-read').then((config) => {
         dictationConfig = config;
         set({
+          enabled: config.enabled ?? false,
           selectedModel: config.selectedModel,
           postProcessing: config.postProcessing,
           dictionary: config.dictionary,
