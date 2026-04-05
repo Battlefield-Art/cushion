@@ -43,6 +43,7 @@ export interface FileBrowserHandle {
 export const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>(
   function FileBrowser({ client, onFileOpen, onSidebarToggle, isCollapsed = false, onSearch, onSettings, onTrash }, ref) {
   const { metadata, currentFile, preferences, sidebarWidth: rawSidebarWidth, setSidebarWidth } = useWorkspaceStore();
+  const dictationEnabled = useDictationStore((s) => s.enabled);
   const { showToast } = useToast();
   const [rootFiles, setRootFiles] = useState<FileTreeNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -376,10 +377,12 @@ export const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>(
             <FolderPlus size={16} className="flex-shrink-0" />
             <span className="truncate whitespace-nowrap">New folder</span>
           </button>
-          <button onClick={() => useDictationStore.getState().toggleRecording()} className={sidebarBtnClass} title="Whisper">
-            <AudioLines size={16} className="flex-shrink-0" />
-            <span className="truncate whitespace-nowrap">Whisper</span>
-          </button>
+          {dictationEnabled && (
+            <button onClick={() => useDictationStore.getState().toggleRecording()} className={sidebarBtnClass} title="Whisper">
+              <AudioLines size={16} className="flex-shrink-0" />
+              <span className="truncate whitespace-nowrap">Whisper</span>
+            </button>
+          )}
         </div>
 
         {/* File tree — only when expanded */}

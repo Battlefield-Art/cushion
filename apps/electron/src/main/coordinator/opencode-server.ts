@@ -1,10 +1,13 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import fs from 'node:fs';
 import { app } from 'electron';
 import net from 'node:net';
 import path from 'node:path';
 
 const OPENCODE_PORT = 14_097;
 const CORS_ORIGIN = app.isPackaged ? '*' : 'http://localhost:3000';
+const STARTUP_TIMEOUT_MS = 15_000;
+const STARTUP_POLL_MS = 250;
 
 let serverProcess: ChildProcess | null = null;
 
@@ -37,12 +40,35 @@ function getOpenCodeBin(): string {
 
   for (const name of candidates) {
     const candidate = path.join(modulesDir, name, 'bin', binary);
-    try { require('fs').accessSync(candidate); return candidate; } catch {}
+    try {
+      fs.accessSync(candidate);
+      if (process.platform !== 'win32') {
+        try { fs.chmodSync(candidate, 0o755); } catch {}
+      }
+      console.log(`[OpenCode] Resolved binary: ${candidate}`);
+      return candidate;
+    } catch {}
   }
 
   const fallback = path.join(modulesDir, '.bin', binary);
-  console.error(`[OpenCode] Binary not found. Tried: ${candidates.join(', ')}. Falling back to ${fallback}`);
+  console.error(`[OpenCode] Binary not found in: ${modulesDir}`);
+  console.error(`[OpenCode] Tried: ${candidates.join(', ')}. Falling back to ${fallback}`);
   return fallback;
+}
+
+function waitForPort(port: number, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    const check = () => {
+      if (Date.now() > deadline) { resolve(false); return; }
+      if (!serverProcess) { resolve(false); return; }
+      isPortListening(port).then((listening) => {
+        if (listening) resolve(true);
+        else setTimeout(check, STARTUP_POLL_MS);
+      });
+    };
+    check();
+  });
 }
 
 export async function startOpenCodeServer(): Promise<void> {
@@ -51,9 +77,10 @@ export async function startOpenCodeServer(): Promise<void> {
     return;
   }
 
+  const binPath = getOpenCodeBin();
   console.log(`[OpenCode] Starting server on port ${OPENCODE_PORT}...`);
 
-  serverProcess = spawn(getOpenCodeBin(), ['serve', '--port', String(OPENCODE_PORT), '--cors', CORS_ORIGIN], {
+  serverProcess = spawn(binPath, ['serve', '--port', String(OPENCODE_PORT), '--cors', CORS_ORIGIN], {
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
@@ -62,6 +89,13 @@ export async function startOpenCodeServer(): Promise<void> {
   serverProcess.stderr?.on('data', (d: Buffer) => console.error(`[OpenCode] ${d.toString().trimEnd()}`));
   serverProcess.on('error', (err) => { console.error('[OpenCode] Failed to start:', err.message); serverProcess = null; });
   serverProcess.on('close', (code) => { console.log(`[OpenCode] Server exited with code ${code}`); serverProcess = null; });
+
+  const ready = await waitForPort(OPENCODE_PORT, STARTUP_TIMEOUT_MS);
+  if (ready) {
+    console.log(`[OpenCode] Server is ready on port ${OPENCODE_PORT}.`);
+  } else {
+    console.error(`[OpenCode] Server did not become ready within ${STARTUP_TIMEOUT_MS}ms.`);
+  }
 }
 
 export function stopOpenCodeServer(): void {
