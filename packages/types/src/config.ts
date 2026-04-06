@@ -1,10 +1,3 @@
-/**
- * Per-workspace config file schemas for `.cushion/` folder.
- *
- * Each interface maps 1:1 to a JSON file in `<workspace>/.cushion/`.
- * All fields are optional — missing keys use defaults defined in the frontend.
- */
-
 export interface CushionSettings {
   readableLineLength?: boolean;
   showLineNumber?: boolean;
@@ -41,6 +34,19 @@ export interface CushionWorkspace {
     order: number;
   }>;
   activeTab?: string | null;
+  panes?: Array<{
+    id: string;
+    tabs: Array<{
+      id: string;
+      filePath: string;
+      isPinned: boolean;
+      isPreview: boolean;
+      order: number;
+    }>;
+    activeFile: string | null;
+  }>;
+  activePaneId?: string | null;
+  paneSizes?: number[];
   rightPanel?: {
     mode: 'chat' | 'none';
     width: number;

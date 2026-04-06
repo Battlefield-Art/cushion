@@ -1,4 +1,3 @@
-
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { CodeEditor } from './CodeEditor';
@@ -22,10 +21,13 @@ import { EditorPanelProvider } from './EditorPanelContext';
 import { RecordingOverlay } from './RecordingOverlay';
 import { setInsertTextCallback, setGetNoteContextCallback, setOnTextInsertedCallback, useDictationStore } from '@/stores/dictationStore';
 import { showGlobalToast } from '@/utils/toast-bridge';
+import { cn } from '@/lib/utils';
 
 const MonacoEditor = lazy(() => import('./MonacoEditor'));
 
-interface EditorPanelProps {
+interface EditorPaneProps {
+  paneId: string;
+  isFirstPane?: boolean;
   client: CoordinatorClient;
   onFileRenamed?: () => void;
   filePaths?: string[];
@@ -47,7 +49,6 @@ const IMAGE_MIME_EXTENSIONS: Record<string, string> = {
   'image/x-icon': 'ico',
   'image/vnd.microsoft.icon': 'ico',
 };
-
 
 function formatPasteTimestamp(date: Date): string {
   const pad2 = (value: number) => String(value).padStart(2, '0');
@@ -82,8 +83,9 @@ function joinWorkspacePath(...parts: string[]): string {
   return parts.filter(Boolean).join('/').replace(/\\/g, '/');
 }
 
-
-export function EditorPanel({
+export function EditorPane({
+  paneId,
+  isFirstPane,
   client,
   onFileRenamed,
   filePaths,
@@ -92,16 +94,23 @@ export function EditorPanel({
   onNewNote,
   onGoToFile,
   onAddSelectionToChat,
-}: EditorPanelProps) {
+}: EditorPaneProps) {
   const workspacePath = useWorkspaceStore((s) => s.metadata?.projectPath ?? null);
   const projectName = useWorkspaceStore((s) => s.metadata?.projectName ?? null);
-  const currentFile = useWorkspaceStore((s) => s.currentFile);
+  const pane = useWorkspaceStore((s) => s.panes.find((p) => p.id === paneId));
+  const paneCount = useWorkspaceStore((s) => s.panes.length);
+  const activePaneId = useWorkspaceStore((s) => s.activePaneId);
   const openFiles = useWorkspaceStore((s) => s.openFiles);
   const preferences = useWorkspaceStore((s) => s.preferences);
   const updateFileContent = useWorkspaceStore((s) => s.updateFileContent);
   const markFileSaved = useWorkspaceStore((s) => s.markFileSaved);
   const setCurrentFile = useWorkspaceStore((s) => s.setCurrentFile);
   const openFile = useWorkspaceStore((s) => s.openFile);
+  const setActivePane = useWorkspaceStore((s) => s.setActivePane);
+
+  const currentFile = pane?.activeFile ?? null;
+  const paneTabs = pane?.tabs ?? [];
+  const isActivePane = activePaneId === paneId;
 
   const historyRef = useRef<{ entries: string[]; index: number; navigating: boolean }>({
     entries: [],
@@ -116,14 +125,15 @@ export function EditorPanel({
     const container = editorContainerRef.current;
     if (!container) return;
     const onScroll = () => {
-      const file = useWorkspaceStore.getState().currentFile;
+      const paneState = useWorkspaceStore.getState().panes.find((p) => p.id === paneId);
+      const file = paneState?.activeFile;
       if (file) {
         scrollPositionsRef.current.set(file, container.scrollTop);
       }
     };
     container.addEventListener('scroll', onScroll, { passive: true });
     return () => container.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [paneId]);
 
   useEffect(() => {
     if (!currentFile) return;
@@ -164,28 +174,27 @@ export function EditorPanel({
 
   const canGoBack = historyRef.current.index > 0;
   const canGoForward = historyRef.current.index < historyRef.current.entries.length - 1;
-  const breadcrumb = useMemo(
-    () => buildEditorBreadcrumb({ projectName, currentFile }),
-    [projectName, currentFile]
-  );
+  const breadcrumb = buildEditorBreadcrumb({ projectName, currentFile });
 
   const goBack = useCallback(() => {
     const h = historyRef.current;
     if (h.index <= 0) return;
     h.index--;
     h.navigating = true;
+    setActivePane(paneId);
     setCurrentFile(h.entries[h.index]);
     forceUpdate(n => n + 1);
-  }, [setCurrentFile]);
+  }, [setCurrentFile, setActivePane, paneId]);
 
   const goForward = useCallback(() => {
     const h = historyRef.current;
     if (h.index >= h.entries.length - 1) return;
     h.index++;
     h.navigating = true;
+    setActivePane(paneId);
     setCurrentFile(h.entries[h.index]);
     forceUpdate(n => n + 1);
-  }, [setCurrentFile]);
+  }, [setCurrentFile, setActivePane, paneId]);
 
   const [showExportDialog, setShowExportDialog] = useState(false);
 
@@ -216,7 +225,6 @@ export function EditorPanel({
     };
   }, []);
 
-
   const handleChange = useCallback(
     (filePath: string, content: string) => {
       const file = useWorkspaceStore.getState().openFiles.get(filePath);
@@ -244,7 +252,7 @@ export function EditorPanel({
             await client.saveFile(filePath, content);
             markFileSaved(filePath, content);
           } catch (err) {
-            console.error('[EditorPanel] Autosave failed:', err);
+            console.error('[EditorPane] Autosave failed:', err);
           }
         }, delay);
         timers.set(filePath, timeout);
@@ -269,10 +277,9 @@ export function EditorPanel({
       await client.saveFile(filePath, contentToSave);
       markFileSaved(filePath, contentToSave);
     } catch (err) {
-      console.error('[EditorPanel] Save failed:', err);
+      console.error('[EditorPane] Save failed:', err);
     }
   }, [client, markFileSaved]);
-
 
   const handlePasteImages = useCallback(
     ({ files, view, filePath }: { files: File[]; view: EditorView; filePath: string }) => {
@@ -303,7 +310,7 @@ export function EditorPanel({
         try {
           await client.createFolder(pasteFolder);
         } catch (err) {
-          console.error('[EditorPanel] Failed to create paste folder:', err);
+          console.error('[EditorPane] Failed to create paste folder:', err);
         }
 
         for (const target of targets) {
@@ -312,7 +319,7 @@ export function EditorPanel({
             const base64 = uint8ArrayToBase64(data);
             await client.saveFileBase64(target.relativePath, base64);
           } catch (err) {
-            console.error('[EditorPanel] Failed to save pasted image:', err);
+            console.error('[EditorPane] Failed to save pasted image:', err);
             alert('Failed to save pasted image: ' + target.relativePath);
           }
         }
@@ -345,13 +352,14 @@ export function EditorPanel({
           autosaveTimersRef.current.delete(fp);
         }
       } catch (err) {
-        console.error('[EditorPanel] Diff save failed:', err);
+        console.error('[EditorPane] Diff save failed:', err);
       }
     };
     return () => { diffSaveRef.current = null; };
   }, [client, markFileSaved]);
 
   useEffect(() => {
+    if (!isActivePane) return;
     setInsertTextCallback((text) => insertTextAtCursorRef.current?.(text));
     setGetNoteContextCallback(() => getNoteContextRef.current?.() ?? '');
     setOnTextInsertedCallback((originalText, from, to) => {
@@ -362,15 +370,16 @@ export function EditorPanel({
       setGetNoteContextCallback(null);
       setOnTextInsertedCallback(null);
     };
-  }, []);
+  }, [isActivePane]);
 
   useEffect(() => {
+    if (!isActivePane) return;
     onDictationCorrectionRef.current = async (original, edited) => {
       try {
         const result = await client.call('dictation/learn-correction', { original, edited });
         if (result.addedWords.length > 0) {
           const { dictionary } = useDictationStore.getState();
-          const newDict = [...dictionary, ...result.addedWords.filter((w) => !dictionary.includes(w))];
+          const newDict = [...dictionary, ...result.addedWords.filter((w: string) => !dictionary.includes(w))];
           useDictationStore.setState({ dictionary: newDict });
 
           showGlobalToast({
@@ -388,13 +397,13 @@ export function EditorPanel({
           });
         }
       } catch (err) {
-        console.error('[EditorPanel] Learn correction failed:', err);
+        console.error('[EditorPane] Learn correction failed:', err);
       }
     };
     return () => {
       onDictationCorrectionRef.current = null;
     };
-  }, [client]);
+  }, [client, isActivePane]);
 
   useEffect(() => {
     clearEditTrackingRef.current?.();
@@ -402,37 +411,37 @@ export function EditorPanel({
 
   const handleRename = useCallback(async (newName: string): Promise<boolean> => {
     if (!currentFile) return false;
-    
+
     const pathParts = currentFile.split(/[/\\]/);
     const oldName = pathParts[pathParts.length - 1];
     const oldBaseName = oldName.includes('.') ? oldName.slice(0, oldName.lastIndexOf('.')) : oldName;
     const extension = oldName.includes('.') ? oldName.slice(oldName.lastIndexOf('.')) : '';
-    
+
     if (newName === oldBaseName) return true;
-    
+
     const newFileName = newName + extension;
     pathParts[pathParts.length - 1] = newFileName;
     const newPath = pathParts.join('/');
-    
+
     try {
       const result = await client.renameFile(currentFile, newPath);
       if (result.success) {
         const store = useWorkspaceStore.getState();
         const fileState = store.openFiles.get(currentFile);
-        
+
         if (fileState) {
           store.closeFile(currentFile);
           store.openFile(newPath, fileState.content);
           store.setCurrentFile(newPath);
         }
-        
+
         onFileRenamed?.();
-        
+
         return true;
       }
       return false;
     } catch (err) {
-      console.error('[EditorPanel] Rename failed:', err);
+      console.error('[EditorPane] Rename failed:', err);
       return false;
     }
   }, [currentFile, client, onFileRenamed]);
@@ -457,7 +466,7 @@ export function EditorPanel({
     const fileName = pathParts[pathParts.length - 1];
     const baseName = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
     await exportToPdf(file.content, baseName, options, filePaths ?? []);
-  }, [currentFile]);
+  }, [currentFile, filePaths]);
 
   const handleExportPandoc = useCallback(async (format: PandocFormat) => {
     setShowExportDialog(false);
@@ -468,7 +477,7 @@ export function EditorPanel({
     const fileName = pathParts[pathParts.length - 1];
     const baseName = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
     await exportWithPandoc(file.content, baseName, format, filePaths ?? [], workspacePath ?? '');
-  }, [currentFile]);
+  }, [currentFile, filePaths, workspacePath]);
 
   const handleWikiLinkNavigate: WikiLinkNavigateCallback = useCallback(
     async (href, resolvedPath, createIfMissing) => {
@@ -485,7 +494,7 @@ export function EditorPanel({
           const { content } = await client.readFile(resolvedPath);
           openFile(resolvedPath, content);
         } catch (err) {
-          console.error('[EditorPanel] Failed to open wiki-link target:', err);
+          console.error('[EditorPane] Failed to open wiki-link target:', err);
         }
       } else if (createIfMissing) {
         const newPath = buildNewFilePath(href);
@@ -495,7 +504,7 @@ export function EditorPanel({
           openFile(newPath, initialContent);
           onFileRenamed?.();
         } catch (err) {
-          console.error('[EditorPanel] Failed to create wiki-link target:', err);
+          console.error('[EditorPane] Failed to create wiki-link target:', err);
         }
       }
     },
@@ -522,21 +531,35 @@ export function EditorPanel({
     onDictationCorrectionRef,
   }), [handleChange, handleSave, handlePasteImages, handleWikiLinkNavigate, filePaths, focusModeEnabled, onAddSelectionToChat]);
 
+  const paneOpenFiles = useMemo(() => {
+    const filePaths = new Set(paneTabs.map((t) => t.filePath));
+    return Array.from(openFiles.entries()).filter(([fp]) => filePaths.has(fp));
+  }, [openFiles, paneTabs]);
+
   return (
     <EditorPanelProvider value={contextValue}>
-    <div className="flex flex-col w-full h-full bg-background">
+    <div
+      className={cn(
+        "flex flex-col w-full h-full bg-background",
+        !isFirstPane && "border-l border-border",
+        paneCount > 1 && !isActivePane && "opacity-90"
+      )}
+      onFocus={() => {
+        if (!isActivePane) setActivePane(paneId);
+      }}
+    >
       {!focusModeEnabled && (
-          <EditorNavRow
-            canGoBack={canGoBack}
-            canGoForward={canGoForward}
-            onGoBack={goBack}
-            onGoForward={goForward}
-            focusModeEnabled={focusModeEnabled}
-            onToggleFocusMode={onToggleFocusMode}
-            onShare={handleShare}
-            segments={breadcrumb.segments}
-            centerTitle={breadcrumb.title}
-          />
+        <EditorNavRow
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onGoBack={goBack}
+          onGoForward={goForward}
+          focusModeEnabled={focusModeEnabled}
+          onToggleFocusMode={onToggleFocusMode}
+          onShare={handleShare}
+          segments={breadcrumb.segments}
+          centerTitle={breadcrumb.title}
+        />
       )}
 
       <div ref={searchPanelContainerRef} className="flex-shrink-0" />
@@ -551,12 +574,12 @@ export function EditorPanel({
 
       <div className="relative flex-1 min-h-0 min-w-0">
       <div
-        className="absolute inset-0 overflow-auto rounded-tl-lg thin-scrollbar"
+        className={cn("absolute inset-0 overflow-auto thin-scrollbar", isFirstPane && "rounded-tl-lg")}
         ref={editorContainerRef}
         data-editor-scroll-container
         style={{ background: 'var(--md-bg, var(--background))' }}
       >
-        {Array.from(openFiles.entries()).map(([fp]) => {
+        {paneOpenFiles.map(([fp]) => {
           const isActive = fp === currentFile;
           const resolved = getViewForFile(fp);
           const isMarkdown = /\.(md|markdown)$/i.test(fp);
@@ -611,14 +634,15 @@ export function EditorPanel({
               <button
                 onClick={() => {
                   const store = useWorkspaceStore.getState();
-                  const tab = store.tabs.find(
+                  const paneState = store.panes.find((p) => p.id === paneId);
+                  const tab = paneState?.tabs.find(
                     (t) => t.filePath === '__new_tab__' && t.isActive
                   );
                   if (tab) {
                     store.removeTab(tab.id);
-                    const remaining = useWorkspaceStore.getState().tabs;
-                    if (remaining.length > 0) {
-                      store.setActiveTab(remaining[remaining.length - 1].id);
+                    const updatedPane = useWorkspaceStore.getState().panes.find((p) => p.id === paneId);
+                    if (updatedPane && updatedPane.tabs.length > 0) {
+                      store.setActiveTab(updatedPane.tabs[updatedPane.tabs.length - 1].id);
                     } else {
                       store.setCurrentFile(null);
                     }
@@ -632,7 +656,7 @@ export function EditorPanel({
           </div>
         )}
       </div>
-      <RecordingOverlay />
+      {isActivePane && <RecordingOverlay />}
       </div>
 
       <ExportOptionsDialog

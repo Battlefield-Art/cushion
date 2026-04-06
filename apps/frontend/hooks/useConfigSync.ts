@@ -45,7 +45,6 @@ export function useConfigSync({
 }: UseConfigSyncOptions) {
   const configSyncRef = useRef<ConfigSync | null>(null);
   const workspaceConfigLoadedRef = useRef(false);
-  // Preserve the full on-disk settings object so unknown keys survive round-trips
   const lastSettingsRef = useRef<CushionSettings>(DEFAULT_SETTINGS);
 
   // Create / destroy ConfigSync when client connects
@@ -82,18 +81,73 @@ export function useConfigSync({
       if (parsedWorkspace) {
         const merged = { ...DEFAULT_WORKSPACE, ...parsedWorkspace };
 
-        // Restore right panel state
         if (merged.rightPanel) {
           onRightPanelRestore(merged.rightPanel.mode, merged.rightPanel.width);
         }
 
-        // Restore sidebar width
         if (merged.sidebarWidth !== undefined) {
           useWorkspaceStore.getState().setSidebarWidth(merged.sidebarWidth);
         }
 
-        // Restore tabs
-        if (merged.tabs.length > 0 && client) {
+        if (merged.panes && merged.panes.length > 0 && client) {
+          const store = useWorkspaceStore.getState();
+          const allFilePaths = merged.panes.flatMap((p) => p.tabs.map((t) => t.filePath));
+          const uniqueFiles = [...new Set(allFilePaths)];
+
+          for (const filePath of uniqueFiles) {
+            try {
+              const { content } = await client.readFile(filePath);
+              if (cancelled) return;
+              store.openFile(filePath, content);
+            } catch {
+              console.warn(`[ConfigSync] Skipping missing file: ${filePath}`);
+            }
+          }
+
+          const restoredPanes = merged.panes.map((savedPane) => ({
+            id: savedPane.id,
+            tabs: savedPane.tabs.map((t, i) => ({
+              id: t.id,
+              filePath: t.filePath,
+              isPinned: t.isPinned,
+              isPreview: t.isPreview,
+              isActive: t.filePath === savedPane.activeFile,
+              order: i,
+            })),
+            activeFile: savedPane.activeFile,
+          }));
+
+          const validPanes = restoredPanes.filter((p) =>
+            p.tabs.some((t) => store.openFiles.has(t.filePath))
+          );
+
+          if (validPanes.length > 0) {
+            const cleanPanes = validPanes.map((p) => {
+              const tabs = p.tabs.filter((t) => store.openFiles.has(t.filePath));
+              return {
+                ...p,
+                tabs,
+                activeFile: tabs.some((t) => t.filePath === p.activeFile)
+                  ? p.activeFile
+                  : tabs[0]?.filePath ?? null,
+              };
+            });
+
+            const activePaneId = merged.activePaneId && cleanPanes.some((p) => p.id === merged.activePaneId)
+              ? merged.activePaneId
+              : cleanPanes[0].id;
+
+            const activePane = cleanPanes.find((p) => p.id === activePaneId) || cleanPanes[0];
+
+            useWorkspaceStore.setState({
+              panes: cleanPanes,
+              activePaneId,
+              paneSizes: merged.paneSizes ?? [],
+              tabs: activePane.tabs,
+              currentFile: activePane.activeFile,
+            });
+          }
+        } else if (merged.tabs && merged.tabs.length > 0 && client) {
           const activeFilePath = merged.activeTab;
           for (const tab of merged.tabs) {
             try {
@@ -174,7 +228,6 @@ export function useConfigSync({
     return useWorkspaceStore.subscribe(
       (state) => state.preferences,
       (prefs) => {
-        // Spread over last-read disk object to preserve unknown keys
         const settings: CushionSettings = { ...lastSettingsRef.current, ...prefs };
         lastSettingsRef.current = settings;
         configSyncRef.current?.scheduleWrite('settings.json', settings);
@@ -182,27 +235,34 @@ export function useConfigSync({
     );
   }, [metadata]);
 
-  // Write workspace.json when tabs or active file change
+  // Write workspace.json when panes, active pane, or sidebar change
   useEffect(() => {
     if (!metadata) return;
 
     return useWorkspaceStore.subscribe(
-      (state) => ({ tabs: state.tabs, currentFile: state.currentFile, sidebarWidth: state.sidebarWidth }),
-      ({ tabs, currentFile, sidebarWidth }) => {
+      (state) => ({ panes: state.panes, activePaneId: state.activePaneId, paneSizes: state.paneSizes, sidebarWidth: state.sidebarWidth }),
+      ({ panes, activePaneId, paneSizes, sidebarWidth }) => {
         const sync = configSyncRef.current;
         if (!sync) return;
 
-        const workspaceData: CushionWorkspace = {
-          tabs: tabs.map((t) => ({
+        const serializedPanes = panes.map((p) => ({
+          id: p.id,
+          tabs: p.tabs.map((t) => ({
             id: t.id,
             filePath: t.filePath,
             isPinned: t.isPinned,
             isPreview: t.isPreview,
             order: t.order,
           })),
-          activeTab: currentFile,
+          activeFile: p.activeFile,
+        }));
+
+        const workspaceData: CushionWorkspace = {
+          panes: serializedPanes,
+          activePaneId,
+          paneSizes,
           rightPanel: { mode: rightPanelMode, width: rightPanelWidth },
-          lastOpenFiles: tabs.map((t) => t.filePath),
+          lastOpenFiles: panes.flatMap((p) => p.tabs.map((t) => t.filePath)),
           sidebarWidth,
         };
         sync.scheduleWrite('workspace.json', workspaceData);
@@ -325,18 +385,24 @@ export function useConfigSync({
     const sync = configSyncRef.current;
     if (!sync) return;
 
-    const { tabs, currentFile, sidebarWidth } = useWorkspaceStore.getState();
+    const { panes, activePaneId, paneSizes, sidebarWidth } = useWorkspaceStore.getState();
+
     const workspaceData: CushionWorkspace = {
-      tabs: tabs.map((t) => ({
-        id: t.id,
-        filePath: t.filePath,
-        isPinned: t.isPinned,
-        isPreview: t.isPreview,
-        order: t.order,
+      panes: panes.map((p) => ({
+        id: p.id,
+        tabs: p.tabs.map((t) => ({
+          id: t.id,
+          filePath: t.filePath,
+          isPinned: t.isPinned,
+          isPreview: t.isPreview,
+          order: t.order,
+        })),
+        activeFile: p.activeFile,
       })),
-      activeTab: currentFile,
+      activePaneId,
+      paneSizes,
       rightPanel: { mode: rightPanelMode, width: rightPanelWidth },
-      lastOpenFiles: tabs.map((t) => t.filePath),
+      lastOpenFiles: panes.flatMap((p) => p.tabs.map((t) => t.filePath)),
       sidebarWidth,
     };
     sync.scheduleWrite('workspace.json', workspaceData);

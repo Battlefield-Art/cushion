@@ -7,29 +7,24 @@ import type {
   TabState,
   WorkspacePreferences,
   Frontmatter,
+  EditorPane,
 } from '@cushion/types';
 import type { CoordinatorClient } from '@/lib/coordinator-client';
 import { DEFAULT_SETTINGS } from '@/lib/config-defaults';
 import { parseFrontmatter } from '@/lib/frontmatter';
 
 interface WorkspaceActions {
-  // Client setup
   setClient: (client: CoordinatorClient) => void;
 
-  // Workspace lifecycle
   openWorkspace: (projectPath: string) => Promise<void>;
   selectWorkspaceFolder: () => Promise<string | null>;
-  closeWorkspace: () => void;
-
-  // File operations
-  openFile: (filePath: string, content: string, forceNewTab?: boolean) => void;
+  openFile: (filePath: string, content: string) => void;
   closeFile: (filePath: string) => void;
   updateFileContent: (filePath: string, content: string) => void;
   markFileSaved: (filePath: string, content: string) => void;
   replaceOpenFileContent: (filePath: string, content: string) => void;
   setCurrentFile: (filePath: string | null) => void;
 
-  // Tab management
   addTab: (filePath: string, isPreview?: boolean) => void;
   addNewTab: () => void;
   removeTab: (tabId: string) => void;
@@ -37,44 +32,40 @@ interface WorkspaceActions {
   pinTab: (tabId: string) => void;
   convertPreviewTab: (filePath: string) => void;
 
-  // Recent history
+  splitPane: (filePath?: string | null) => void;
+  closePane: (paneId: string) => void;
+  setActivePane: (paneId: string) => void;
+  setPaneSizes: (sizes: number[]) => void;
   addRecentProject: () => void;
-
-  // Preferences
   updatePreferences: (preferences: Partial<WorkspacePreferences>) => void;
-
-  // Layout
   setSidebarWidth: (width: number) => void;
-
-  // Error handling
-  setError: (error: string | null) => void;
-  setLoading: (isLoading: boolean) => void;
-
-  // File tree
   setFlatFileList: (paths: string[]) => void;
 
-  // Utilities
-  reset: () => void;
 }
+
+function createDefaultPane(tabs: TabState[] = [], activeFile: string | null = null): EditorPane {
+  return {
+    id: `pane-${Date.now()}-${Math.random()}`,
+    tabs,
+    activeFile,
+  };
+}
+
+const defaultPane = createDefaultPane();
 
 const initialState: Omit<WorkspaceState, keyof WorkspaceActions> = {
   metadata: null,
   openFiles: new Map(),
   tabs: [],
   currentFile: null,
+  panes: [defaultPane],
+  activePaneId: defaultPane.id,
+  paneSizes: [],
   flatFileList: [],
-  fileWatcher: {
-    watchedPaths: [],
-    ignoredPatterns: [],
-    hasExternalChanges: new Map(),
-  },
   recentProjects: [],
   recentFiles: [],
   preferences: { ...DEFAULT_SETTINGS },
   sidebarWidth: 240,
-  sessionId: '',
-  isLoading: false,
-  error: null,
 };
 
 let coordinatorClient: CoordinatorClient | null = null;
@@ -134,6 +125,22 @@ function extractFrontmatter(filePath: string, content: string): Frontmatter | nu
   return frontmatter;
 }
 
+function deriveCompat(panes: EditorPane[], activePaneId: string | null) {
+  const activePane = panes.find((p) => p.id === activePaneId) || panes[0];
+  return {
+    tabs: activePane?.tabs ?? [],
+    currentFile: activePane?.activeFile ?? null,
+  };
+}
+
+function findPaneByTabId(panes: EditorPane[], tabId: string): EditorPane | undefined {
+  return panes.find((p) => p.tabs.some((t) => t.id === tabId));
+}
+
+function findPaneByFilePath(panes: EditorPane[], filePath: string): EditorPane | undefined {
+  return panes.find((p) => p.tabs.some((t) => t.filePath === filePath));
+}
+
 export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
   subscribeWithSelector(
     persist(
@@ -149,7 +156,6 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
             throw new Error('Coordinator client not initialized');
           }
 
-          set({ isLoading: true, error: null });
 
           try {
             const previousProjectPath = get().metadata?.projectPath;
@@ -164,35 +170,28 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
 
             const isWorkspaceSwitch = previousProjectPath !== projectPath;
 
-            set((state) => ({
-              metadata,
-              isLoading: false,
-              error: null,
-              ...(isWorkspaceSwitch
-                ? {
-                    openFiles: new Map(),
-                    tabs: [],
-                    currentFile: null,
-                    flatFileList: [],
-                    fileWatcher: {
-                      ...state.fileWatcher,
-                      hasExternalChanges: new Map(),
-                    },
-                  }
-                : {}),
-            }));
+            if (isWorkspaceSwitch) {
+              const freshPane = createDefaultPane();
+              set((state) => ({
+                metadata,
+                openFiles: new Map(),
+                tabs: [],
+                currentFile: null,
+                panes: [freshPane],
+                activePaneId: freshPane.id,
+                paneSizes: [],
+                flatFileList: [],
+              }));
+            } else {
+              set({ metadata });
+            }
 
             get().addRecentProject();
 
             window.electronAPI.notifyWorkspaceOpened(projectPath);
           } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : 'Unknown error';
-            set({
-              error: errorMessage,
-              isLoading: false,
-            });
             console.error('[WorkspaceStore] Failed to open workspace:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             throw error instanceof Error ? error : new Error(errorMessage);
           }
         },
@@ -206,19 +205,16 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
           return path;
         },
 
-        closeWorkspace: () => {
-          set(initialState);
-        },
-
-        openFile: (filePath: string, content: string, forceNewTab: boolean = false) => {
-          const { metadata, openFiles, tabs } = get();
+        openFile: (filePath: string, content: string) => {
+          const { metadata, openFiles, panes, activePaneId } = get();
 
           if (!metadata) {
             return;
           }
 
-          const existingTab = tabs.find((t) => t.filePath === filePath);
-          if (existingTab) {
+          const existingPane = findPaneByFilePath(panes, filePath);
+          if (existingPane) {
+            const existingTab = existingPane.tabs.find((t) => t.filePath === filePath)!;
             get().setActiveTab(existingTab.id);
 
             if (!openFiles.get(filePath)) {
@@ -262,19 +258,30 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
           const newOpenFiles = new Map(openFiles);
           newOpenFiles.set(filePath, fileState);
 
-          const newTabPlaceholder = tabs.find((t) => t.filePath === '__new_tab__');
-          if (newTabPlaceholder) {
-            const newTabs = tabs.map((t) =>
-              t.id === newTabPlaceholder.id
-                ? { ...t, filePath, isActive: true, isPreview: false }
-                : { ...t, isActive: false }
-            );
-            set({
-              tabs: newTabs,
-              openFiles: newOpenFiles,
-              currentFile: filePath,
-            });
-            return;
+          const activePane = panes.find((p) => p.id === activePaneId);
+          if (activePane) {
+            const newTabPlaceholder = activePane.tabs.find((t) => t.filePath === '__new_tab__');
+            if (newTabPlaceholder) {
+              const newPanes = panes.map((p) => {
+                if (p.id !== activePaneId) return p;
+                return {
+                  ...p,
+                  tabs: p.tabs.map((t) =>
+                    t.id === newTabPlaceholder.id
+                      ? { ...t, filePath, isActive: true, isPreview: false }
+                      : { ...t, isActive: false }
+                  ),
+                  activeFile: filePath,
+                };
+              });
+              const compat = deriveCompat(newPanes, activePaneId);
+              set({
+                panes: newPanes,
+                openFiles: newOpenFiles,
+                ...compat,
+              });
+              return;
+            }
           }
 
           get().addTab(filePath, false);
@@ -286,18 +293,21 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         },
 
         closeFile: (filePath: string) => {
-          const { openFiles } = get();
+          const { openFiles, panes } = get();
 
           const newOpenFiles = new Map(openFiles);
-          newOpenFiles.delete(filePath);
-
-          const tabs = get().tabs;
-          const tab = tabs.find((t) => t.filePath === filePath);
+          const paneWithFile = findPaneByFilePath(panes, filePath);
+          const tab = paneWithFile?.tabs.find((t) => t.filePath === filePath);
           if (tab) {
             get().removeTab(tab.id);
           }
 
-          set({ openFiles: newOpenFiles });
+          const { panes: updatedPanes } = get();
+          const stillOpen = findPaneByFilePath(updatedPanes, filePath);
+          if (!stillOpen) {
+            newOpenFiles.delete(filePath);
+            set({ openFiles: newOpenFiles });
+          }
         },
 
         updateFileContent: (filePath: string, content: string) => {
@@ -323,9 +333,8 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
 
           set({ openFiles: newOpenFiles });
 
-          // Editing a file converts its preview tab to permanent (Obsidian behavior)
-          const previewTab = get().tabs.find((t) => t.filePath === filePath && t.isPreview);
-          if (previewTab) {
+          const previewPane = get().panes.find((p) => p.tabs.some((t) => t.filePath === filePath && t.isPreview));
+          if (previewPane) {
             get().convertPreviewTab(filePath);
           }
         },
@@ -372,106 +381,241 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         },
 
         setCurrentFile: (filePath: string | null) => {
-          set({ currentFile: filePath });
+          const { panes, activePaneId } = get();
+          const newPanes = panes.map((p) => {
+            if (p.id !== activePaneId) return p;
+            return { ...p, activeFile: filePath };
+          });
+          set({ panes: newPanes, currentFile: filePath });
         },
 
         addTab: (filePath: string, isPreview: boolean = false) => {
-          const { tabs } = get();
+          const { panes, activePaneId } = get();
+          const targetPaneId = activePaneId;
 
-          if (isPreview) {
-            const previewTabIndex = tabs.findIndex((t) => t.isPreview);
-            if (previewTabIndex !== -1) {
-              const newTabs = tabs.map((t, i) =>
-                i === previewTabIndex
-                  ? { ...t, filePath, isActive: true }
-                  : { ...t, isActive: false }
-              );
-              set({ tabs: newTabs, currentFile: filePath });
-              return;
+          const newPanes = panes.map((p) => {
+            if (p.id !== targetPaneId) return p;
+
+            if (isPreview) {
+              const previewTabIndex = p.tabs.findIndex((t) => t.isPreview);
+              if (previewTabIndex !== -1) {
+                return {
+                  ...p,
+                  tabs: p.tabs.map((t, i) =>
+                    i === previewTabIndex
+                      ? { ...t, filePath, isActive: true }
+                      : { ...t, isActive: false }
+                  ),
+                  activeFile: filePath,
+                };
+              }
             }
-          }
 
-          const newTab: TabState = {
-            id: `tab-${Date.now()}-${Math.random()}`,
-            filePath,
-            isActive: true,
-            isPinned: false,
-            isPreview,
-            order: tabs.length,
-          };
+            const newTab: TabState = {
+              id: `tab-${Date.now()}-${Math.random()}`,
+              filePath,
+              isActive: true,
+              isPinned: false,
+              isPreview,
+              order: p.tabs.length,
+            };
 
-          const newTabs = tabs.map((t) => ({ ...t, isActive: false }));
-          newTabs.push(newTab);
-
-          set({
-            tabs: newTabs,
-            currentFile: filePath,
+            return {
+              ...p,
+              tabs: [...p.tabs.map((t) => ({ ...t, isActive: false })), newTab],
+              activeFile: filePath,
+            };
           });
+
+          const compat = deriveCompat(newPanes, activePaneId);
+          set({ panes: newPanes, ...compat });
         },
 
         addNewTab: () => {
-          const { tabs } = get();
+          const { panes, activePaneId } = get();
+
           const newTab: TabState = {
             id: `tab-${Date.now()}-${Math.random()}`,
             filePath: '__new_tab__',
             isActive: true,
             isPinned: false,
             isPreview: false,
-            order: tabs.length,
+            order: 0,
           };
 
-          const newTabs = tabs.map((t) => ({ ...t, isActive: false }));
-          newTabs.push(newTab);
-
-          set({
-            tabs: newTabs,
-            currentFile: '__new_tab__',
+          const newPanes = panes.map((p) => {
+            if (p.id !== activePaneId) return p;
+            return {
+              ...p,
+              tabs: [...p.tabs.map((t) => ({ ...t, isActive: false })), { ...newTab, order: p.tabs.length }],
+              activeFile: '__new_tab__',
+            };
           });
+
+          const compat = deriveCompat(newPanes, activePaneId);
+          set({ panes: newPanes, ...compat });
         },
 
         removeTab: (tabId: string) => {
-          const { tabs, currentFile } = get();
-          const newTabs = tabs.filter((t) => t.id !== tabId);
+          const { panes, activePaneId } = get();
+          const owningPane = findPaneByTabId(panes, tabId);
+          if (!owningPane) return;
 
-          const removedTab = tabs.find((t) => t.id === tabId);
-          if (removedTab?.filePath === currentFile && newTabs.length > 0) {
+          const removedTab = owningPane.tabs.find((t) => t.id === tabId);
+          const newTabs = owningPane.tabs.filter((t) => t.id !== tabId);
+
+          let newActiveFile = owningPane.activeFile;
+          if (removedTab?.filePath === owningPane.activeFile && newTabs.length > 0) {
             newTabs[0].isActive = true;
-            set({ currentFile: newTabs[0].filePath });
+            newActiveFile = newTabs[0].filePath;
+          } else if (newTabs.length === 0) {
+            newActiveFile = null;
           }
 
-          set({ tabs: newTabs });
+          if (newTabs.length === 0 && panes.length > 1) {
+            get().closePane(owningPane.id);
+            return;
+          }
+
+          const newPanes = panes.map((p) => {
+            if (p.id !== owningPane.id) return p;
+            return { ...p, tabs: newTabs, activeFile: newActiveFile };
+          });
+
+          const compat = deriveCompat(newPanes, activePaneId);
+          set({ panes: newPanes, ...compat });
         },
 
         setActiveTab: (tabId: string) => {
-          const { tabs } = get();
-          const newTabs = tabs.map((t) => ({
-            ...t,
-            isActive: t.id === tabId,
-          }));
+          const { panes } = get();
+          const owningPane = findPaneByTabId(panes, tabId);
+          if (!owningPane) return;
 
-          const activeTab = newTabs.find((t) => t.id === tabId);
-          if (activeTab) {
-            set({
+          const newPanes = panes.map((p) => {
+            if (p.id !== owningPane.id) return p;
+            const newTabs = p.tabs.map((t) => ({
+              ...t,
+              isActive: t.id === tabId,
+            }));
+            const activeTab = newTabs.find((t) => t.id === tabId);
+            return {
+              ...p,
               tabs: newTabs,
-              currentFile: activeTab.filePath,
-            });
-          }
+              activeFile: activeTab?.filePath ?? p.activeFile,
+            };
+          });
+
+          set({
+            panes: newPanes,
+            activePaneId: owningPane.id,
+            ...deriveCompat(newPanes, owningPane.id),
+          });
         },
 
         pinTab: (tabId: string) => {
-          const { tabs } = get();
-          const newTabs = tabs.map((t) =>
-            t.id === tabId ? { ...t, isPinned: !t.isPinned } : t
-          );
-          set({ tabs: newTabs });
+          const { panes, activePaneId } = get();
+          const owningPane = findPaneByTabId(panes, tabId);
+          if (!owningPane) return;
+
+          const newPanes = panes.map((p) => {
+            if (p.id !== owningPane.id) return p;
+            return {
+              ...p,
+              tabs: p.tabs.map((t) =>
+                t.id === tabId ? { ...t, isPinned: !t.isPinned } : t
+              ),
+            };
+          });
+          const compat = deriveCompat(newPanes, activePaneId);
+          set({ panes: newPanes, ...compat });
         },
 
         convertPreviewTab: (filePath: string) => {
-          const { tabs } = get();
-          const newTabs = tabs.map((t) =>
-            t.filePath === filePath ? { ...t, isPreview: false } : t
+          const { panes, activePaneId } = get();
+          const newPanes = panes.map((p) => ({
+            ...p,
+            tabs: p.tabs.map((t) =>
+              t.filePath === filePath ? { ...t, isPreview: false } : t
+            ),
+          }));
+          const compat = deriveCompat(newPanes, activePaneId);
+          set({ panes: newPanes, ...compat });
+        },
+
+        // ---- Pane actions ----
+
+        splitPane: (filePath?: string | null) => {
+          const { panes, activePaneId } = get();
+          const fileToOpen = filePath ?? get().currentFile;
+          const newPane = createDefaultPane(
+            fileToOpen
+              ? [{
+                  id: `tab-${Date.now()}-${Math.random()}`,
+                  filePath: fileToOpen,
+                  isActive: true,
+                  isPinned: false,
+                  isPreview: false,
+                  order: 0,
+                }]
+              : [],
+            fileToOpen ?? null,
           );
-          set({ tabs: newTabs });
+
+          const activeIndex = panes.findIndex((p) => p.id === activePaneId);
+          const newPanes = [...panes];
+          newPanes.splice(activeIndex + 1, 0, newPane);
+
+          const compat = deriveCompat(newPanes, newPane.id);
+          set({
+            panes: newPanes,
+            activePaneId: newPane.id,
+            paneSizes: [],
+            ...compat,
+          });
+        },
+
+        closePane: (paneId: string) => {
+          const { panes, activePaneId } = get();
+          if (panes.length <= 1) return;
+
+          const idx = panes.findIndex((p) => p.id === paneId);
+          const newPanes = panes.filter((p) => p.id !== paneId);
+
+          let newActivePaneId = activePaneId;
+          if (activePaneId === paneId) {
+            const neighborIdx = Math.min(idx, newPanes.length - 1);
+            newActivePaneId = newPanes[neighborIdx].id;
+          }
+
+          const allOpenFilePaths = new Set(newPanes.flatMap((p) => p.tabs.map((t) => t.filePath)));
+          const { openFiles } = get();
+          const newOpenFiles = new Map(openFiles);
+          for (const [fp] of openFiles) {
+            if (!allOpenFilePaths.has(fp)) {
+              newOpenFiles.delete(fp);
+            }
+          }
+
+          const compat = deriveCompat(newPanes, newActivePaneId);
+          set({
+            panes: newPanes,
+            activePaneId: newActivePaneId,
+            paneSizes: [],
+            openFiles: newOpenFiles,
+            ...compat,
+          });
+        },
+
+        setActivePane: (paneId: string) => {
+          const { panes } = get();
+          const pane = panes.find((p) => p.id === paneId);
+          if (!pane) return;
+          const compat = deriveCompat(panes, paneId);
+          set({ activePaneId: paneId, ...compat });
+        },
+
+        setPaneSizes: (sizes: number[]) => {
+          set({ paneSizes: sizes });
         },
 
         addRecentProject: () => {
@@ -502,25 +646,12 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
           set({ sidebarWidth: width });
         },
 
-        setError: (error: string | null) => {
-          set({ error });
-        },
-
-        setLoading: (isLoading: boolean) => {
-          set({ isLoading });
-        },
-
         setFlatFileList: (paths: string[]) => {
           set({ flatFileList: paths });
-        },
-
-        reset: () => {
-          set(initialState);
         },
       }),
       {
         name: 'cushion-workspace',
-        // Only persist recentProjects — preferences are loaded from disk (settings.json)
         partialize: (state) => ({
           recentProjects: state.recentProjects,
         }),

@@ -68,10 +68,10 @@ export interface TabState {
 
 export type WorkspacePreferences = Required<CushionSettings>;
 
-export interface FileWatcherState {
-  watchedPaths: string[];
-  ignoredPatterns: string[];
-  hasExternalChanges: Map<string, boolean>;
+export interface EditorPane {
+  id: string;
+  tabs: TabState[];
+  activeFile: string | null;
 }
 
 export interface WorkspaceState {
@@ -79,15 +79,14 @@ export interface WorkspaceState {
   openFiles: Map<string, FileState>;
   tabs: TabState[];
   currentFile: string | null;
+  panes: EditorPane[];
+  activePaneId: string | null;
+  paneSizes: number[];
   flatFileList: string[];
-  fileWatcher: FileWatcherState;
   recentProjects: WorkspaceMetadata[];
   recentFiles: string[];
   preferences: WorkspacePreferences;
   sidebarWidth: number;
-  sessionId: string;
-  isLoading: boolean;
-  error: string | null;
 }
 
 export interface WikiLinkInfo {

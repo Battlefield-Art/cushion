@@ -14,7 +14,7 @@ import { flattenVisibleTree, flatPathsFromRows, type FlatRow } from './flattenTr
 
 interface FileTreeProps {
   nodes: FileTreeNode[];
-  onFileClick: (path: string, forceNewTab?: boolean) => void;
+  onFileClick: (path: string) => void;
   currentFile: string | null;
   scrollRef: React.RefObject<HTMLDivElement | null>;
   onLoadDirectory?: (path: string) => Promise<FileTreeNode[]>;

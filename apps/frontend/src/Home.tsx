@@ -7,7 +7,9 @@ import { useChatStore } from '@/stores/chatStore';
 import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
 import { FileBrowser, FileBrowserHandle } from '@/components/workspace/FileBrowser';
 import { WorkspaceModal } from '@/components/workspace/WorkspaceModal';
-import { EditorPanel } from '@/components/editor/EditorPanel';
+import { Allotment } from 'allotment';
+import 'allotment/dist/style.css';
+import { EditorPane } from '@/components/editor/EditorPane';
 import { QuickSwitcher } from '@/components/quick-switcher';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { ToastProvider, useToast } from '@/components/chat/Toast';
@@ -87,7 +89,7 @@ function ToastBridge() {
 }
 
 export default function Home() {
-  const { metadata, openFile, setClient, currentFile, openWorkspace, recentProjects, tabs, setActiveTab, addNewTab, closeFile, removeTab, setCurrentFile, sidebarWidth } = useWorkspaceStore();
+  const { metadata, openFile, setClient, currentFile, openWorkspace, recentProjects, tabs, removeTab, closeFile, sidebarWidth, splitPane, panes, paneSizes, setPaneSizes } = useWorkspaceStore();
   const connectChat = useChatStore((state) => state.connect);
   const disconnectChat = useChatStore((state) => state.disconnect);
   const syncCurrentFile = useChatStore((state) => state.syncCurrentFile);
@@ -257,11 +259,21 @@ export default function Home() {
       await client.saveFile(name, '');
       fileBrowserRef.current?.refreshFileList();
       fetchFileTree();
-      openFile(name, '', true);
+      openFile(name, '');
     } catch (err) {
       console.error('[Page] Failed to create new note:', err);
     }
   }, [client, openFile, fetchFileTree, filePaths]);
+
+  const handleCloseActiveTab = useCallback(() => {
+    const active = tabs.find((t) => t.isActive) || tabs[0];
+    if (!active) return;
+    if (active.filePath === '__new_tab__') {
+      removeTab(active.id);
+    } else {
+      closeFile(active.filePath);
+    }
+  }, [tabs, closeFile, removeTab]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -294,10 +306,15 @@ export default function Home() {
         setActiveSession(null).catch(() => undefined);
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        splitPane();
+        return;
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [appShortcuts, closeTopmostAppOverlay, focusModeEnabled, setActiveSession, handleNewNote]);
+  }, [appShortcuts, closeTopmostAppOverlay, focusModeEnabled, setActiveSession, handleNewNote, splitPane]);
 
   useEffect(() => {
     if (rightPanelMode !== 'none') {
@@ -306,8 +323,8 @@ export default function Home() {
   }, [rightPanelMode]);
 
   const handleFileOpen = useCallback(
-    (filePath: string, content: string, forceNewTab?: boolean) => {
-      openFile(filePath, content, forceNewTab);
+    (filePath: string, content: string) => {
+      openFile(filePath, content);
     },
     [openFile]
   );
@@ -345,54 +362,6 @@ export default function Home() {
   const toggleFocusMode = useCallback(() => {
     setFocusModeEnabled((prev) => !prev);
   }, []);
-
-  const handleCloseTab = useCallback(
-    (tabId: string) => {
-      const tab = tabs.find((t) => t.id === tabId);
-      if (!tab) return;
-      if (tab.filePath === '__new_tab__') {
-        removeTab(tabId);
-      } else {
-        closeFile(tab.filePath);
-      }
-      const remaining = useWorkspaceStore.getState().tabs;
-      if (remaining.length > 0) {
-        const active = remaining.find((t) => t.isActive) || remaining[0];
-        setCurrentFile(active.filePath);
-      } else {
-        setCurrentFile(null);
-      }
-    },
-    [tabs, closeFile, removeTab, setCurrentFile]
-  );
-
-  const handleCloseOthers = useCallback(
-    (tabId: string) => {
-      tabs.forEach((t) => {
-        if (t.id !== tabId) handleCloseTab(t.id);
-      });
-    },
-    [tabs, handleCloseTab]
-  );
-
-  const handleCloseToRight = useCallback(
-    (tabId: string) => {
-      const idx = tabs.findIndex((t) => t.id === tabId);
-      if (idx === -1) return;
-      tabs.slice(idx + 1).forEach((t) => handleCloseTab(t.id));
-    },
-    [tabs, handleCloseTab]
-  );
-
-  const handleCloseAll = useCallback(() => {
-    tabs.forEach((t) => handleCloseTab(t.id));
-  }, [tabs, handleCloseTab]);
-
-  const handleCloseActiveTab = useCallback(() => {
-    const active = tabs.find((t) => t.isActive) || tabs[0];
-    if (!active) return;
-    handleCloseTab(active.id);
-  }, [tabs, handleCloseTab]);
 
   const isSidebarHidden = sidebarCollapsed || focusModeEnabled;
 
@@ -446,7 +415,7 @@ export default function Home() {
       await client.saveFile(filePath, '');
       fileBrowserRef.current?.refreshFileList();
       fetchFileTree();
-      openFile(filePath, '', true);
+      openFile(filePath, '');
     } catch (err) {
       console.error('[Page] Failed to create file:', err);
     }
@@ -494,13 +463,6 @@ export default function Home() {
             }
             toggleSidebarCollapsed();
           }}
-          tabs={tabs}
-          onSelectTab={setActiveTab}
-          onCloseTab={handleCloseTab}
-          onCloseOthers={handleCloseOthers}
-          onCloseToRight={handleCloseToRight}
-          onCloseAll={handleCloseAll}
-          onAddTab={addNewTab}
           rightPanelOpen={rightPanelMode !== 'none'}
           rightPanelWidth={resolvedRightPanelWidth}
           onToggleRightPanel={toggleRightPanel}
@@ -522,16 +484,27 @@ export default function Home() {
 
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           <div className="flex-1 overflow-hidden">
-              <EditorPanel
-                client={client}
-                onFileRenamed={handleFileRenamed}
-                filePaths={filePaths}
-                focusModeEnabled={focusModeEnabled}
-                onToggleFocusMode={toggleFocusMode}
-                onNewNote={handleNewNote}
-                onGoToFile={() => setShowQuickSwitcher(true)}
-                onAddSelectionToChat={handleAddSelectionToChat}
-              />
+              <Allotment
+                onChange={setPaneSizes}
+                defaultSizes={paneSizes.length === panes.length ? paneSizes : undefined}
+              >
+                {panes.map((pane, i) => (
+                  <Allotment.Pane key={pane.id} minSize={200}>
+                    <EditorPane
+                      paneId={pane.id}
+                      isFirstPane={i === 0}
+                      client={client}
+                      onFileRenamed={handleFileRenamed}
+                      filePaths={filePaths}
+                      focusModeEnabled={focusModeEnabled}
+                      onToggleFocusMode={toggleFocusMode}
+                      onNewNote={handleNewNote}
+                      onGoToFile={() => setShowQuickSwitcher(true)}
+                      onAddSelectionToChat={handleAddSelectionToChat}
+                    />
+                  </Allotment.Pane>
+                ))}
+              </Allotment>
           </div>
 
         </main>

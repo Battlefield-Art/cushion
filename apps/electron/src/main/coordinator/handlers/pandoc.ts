@@ -4,8 +4,17 @@ import { writeFile, unlink } from 'fs/promises';
 import { execFile as execFileCb } from 'child_process';
 import { promisify } from 'util';
 import { app, dialog, type BrowserWindow } from 'electron';
-import { PANDOC_FORMAT_META, type PandocFormat, type PandocBinaryStatus } from '@cushion/types';
+import type { PandocFormat, PandocBinaryStatus } from '@cushion/types';
 import type { PandocBinaryManager } from '../pandoc-binary-manager';
+
+const PANDOC_FORMAT_META: Record<PandocFormat, { label: string; extension: string; filterName: string }> = {
+  docx:  { label: 'Word (.docx)',       extension: 'docx', filterName: 'Word Document' },
+  epub:  { label: 'EPUB (.epub)',        extension: 'epub', filterName: 'EPUB' },
+  html:  { label: 'HTML (.html)',        extension: 'html', filterName: 'HTML' },
+  odt:   { label: 'OpenDocument (.odt)', extension: 'odt',  filterName: 'OpenDocument Text' },
+  latex: { label: 'LaTeX (.tex)',        extension: 'tex',  filterName: 'LaTeX' },
+  plain: { label: 'Plain Text (.txt)',   extension: 'txt',  filterName: 'Plain Text' },
+};
 
 const execFilePromise = promisify(execFileCb);
 

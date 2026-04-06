@@ -10,7 +10,7 @@ import type { FlatTreeItem } from './flattenTree';
 interface FileTreeRowProps {
   item: FlatTreeItem;
   currentFile: string | null;
-  onFileClick: (path: string, forceNewTab?: boolean) => void;
+  onFileClick: (path: string) => void;
   onToggleDirectory: (path: string) => void;
   onStartRename: (node: FileTreeNode) => void;
   onStartCreateFile: (parentPath: string) => void;
