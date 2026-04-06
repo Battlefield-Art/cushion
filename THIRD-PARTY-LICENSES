@@ -6,8 +6,9 @@ Cushion includes or depends on the following third-party software:
 
 pdfjs-dist
 ----------
+Copyright 2012 Mozilla Foundation
 License: Apache License 2.0
-URL: https://github.com/nicolo-ribaudo/pdfjs-dist
+URL: https://github.com/mozilla/pdf.js
 Used for: PDF rendering in the editor
 
 Apache License 2.0 requires:
@@ -17,6 +18,7 @@ Apache License 2.0 requires:
 
 highlight.js
 -------------
+Copyright (c) 2006, Ivan Sagalaev. All rights reserved.
 License: BSD 3-Clause
 URL: https://github.com/highlightjs/highlight.js
 Used for: Syntax highlighting in code blocks
@@ -27,6 +29,7 @@ BSD 3-Clause requires:
 
 @atlaskit/pragmatic-drag-and-drop
 ----------------------------------
+Copyright 2024 Atlassian Pty Ltd
 License: Apache License 2.0
 URL: https://github.com/atlassian/pragmatic-drag-and-drop
 Used for: Drag-and-drop in the file tree and tab bar
@@ -38,6 +41,7 @@ Apache License 2.0 requires:
 
 sherpa-onnx (runtime binary)
 -----------------------------
+Copyright (c) 2023 Xiaomi Corporation
 License: Apache License 2.0
 URL: https://github.com/k2-fsa/sherpa-onnx
 Used for: Local speech-to-text (dictation feature)
@@ -50,9 +54,23 @@ Apache License 2.0 requires:
 
 opencode-ai
 ------------
+Copyright (c) 2025 Kujtim Hoxha
 License: MIT
-URL: https://github.com/nicepkg/opencode
+URL: https://github.com/opencode-ai/opencode
 Used for: AI chat integration
 
 MIT License requires:
 - Include copyright notice and license text
+
+
+Pandoc
+------
+Copyright (C) 2006-2024 John MacFarlane
+License: GPL v2 or later
+URL: https://github.com/jgm/pandoc
+Used for: Document format conversion (called as a subprocess)
+Note: Pandoc is invoked as an external process, not linked or embedded.
+
+GPL v2+ requires:
+- Include copyright notice
+- Provide access to Pandoc's source code (available at the URL above)
