@@ -53,10 +53,10 @@ bun run package:electron
 
 - [ ] CSV and XLSX file support
 - [ ] Canvas for connecting notes visually
-- [ ] Split page view
+- [X] Split page view
 - [ ] Rich text formatting inside tables (bold, italic, links, etc.)
 - [ ] Floating toolbar for quick styling (Notion-style)
-- [ ] Document export via Pandoc (Word, LaTeX, HTML, etc.)
+- [X] Document export via Pandoc (Word, LaTeX, HTML, etc.)
 - [ ] LLM post-processing for dictation in the AI chat bar, optimized for code
 
 ## Platform Support
