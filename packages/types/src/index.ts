@@ -74,6 +74,12 @@ export interface FileWatcherState {
   hasExternalChanges: Map<string, boolean>;
 }
 
+export interface EditorPane {
+  id: string;
+  tabs: TabState[];
+  activeFile: string | null;
+}
+
 export interface WorkspaceState {
   metadata: WorkspaceMetadata | null;
   openFiles: Map<string, FileState>;

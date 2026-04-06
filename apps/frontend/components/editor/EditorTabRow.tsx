@@ -1,9 +1,9 @@
 
-import type { TabState } from '@cushion/types';
 import { Minus, Square, X, PanelLeft, PanelRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { EditorTabs } from './EditorTabs';
 import { hasCustomTitlebar, needsCustomWindowControls, noDragStyle } from './editor-path';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { PaneTabBar } from './PaneTabBar';
 import logoSvg from '/logo.svg?url';
 
 interface EditorTabRowProps {
@@ -11,13 +11,6 @@ interface EditorTabRowProps {
   sidebarWidth?: number;
   onToggleSidebar?: () => void;
   onOpenWorkspace?: () => void;
-  tabs: TabState[];
-  onSelectTab: (tabId: string) => void;
-  onCloseTab: (tabId: string) => void;
-  onCloseOthers?: (tabId: string) => void;
-  onCloseToRight?: (tabId: string) => void;
-  onCloseAll?: () => void;
-  onAddTab?: () => void;
   rightPanelOpen?: boolean;
   rightPanelWidth?: number;
   onToggleRightPanel?: () => void;
@@ -28,17 +21,14 @@ export function EditorTabRow({
   sidebarWidth,
   onToggleSidebar,
   onOpenWorkspace,
-  tabs,
-  onSelectTab,
-  onCloseTab,
-  onCloseOthers,
-  onCloseToRight,
-  onCloseAll,
-  onAddTab,
   rightPanelOpen,
   rightPanelWidth,
   onToggleRightPanel,
 }: EditorTabRowProps) {
+  const panes = useWorkspaceStore((s) => s.panes);
+  const paneSizes = useWorkspaceStore((s) => s.paneSizes);
+  const hasSizes = paneSizes.length === panes.length;
+
   return (
     <div
       className={cn(
@@ -48,7 +38,6 @@ export function EditorTabRow({
       )}
       style={hasCustomTitlebar ? {
         WebkitAppRegion: 'drag',
-        paddingRight: (!needsCustomWindowControls && !rightPanelOpen) ? 140 : undefined,
       } as React.CSSProperties : undefined}
     >
       <div
@@ -93,50 +82,46 @@ export function EditorTabRow({
         )}
       </div>
 
-      <div
-        className="min-w-0 flex-1 flex items-center"
-      >
-        <div className="min-w-0 flex-1 overflow-hidden">
-          {tabs.length > 0 ? (
-            <EditorTabs
-              tabs={tabs}
-              onSelectTab={onSelectTab}
-              onCloseTab={onCloseTab}
-              onCloseOthers={onCloseOthers}
-              onCloseToRight={onCloseToRight}
-              onCloseAll={onCloseAll}
-              onAddTab={onAddTab}
-            />
-          ) : (
-            <div className="h-10" />
-          )}
-        </div>
-
-        {onToggleRightPanel && (
-          <button
-            onClick={onToggleRightPanel}
-            className={cn(
-              'mx-2 h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md',
-              rightPanelOpen ? 'text-foreground' : 'text-muted-foreground',
-              'hover:text-foreground',
-              'hover:bg-muted/30',
-              'transition-colors duration-150'
-            )}
-            style={noDragStyle}
-            title={rightPanelOpen ? 'Close right sidebar' : 'Open right sidebar'}
-            aria-label={rightPanelOpen ? 'Close right sidebar' : 'Open right sidebar'}
-            aria-pressed={!!rightPanelOpen}
+      <div className="min-w-0 flex-1 flex items-end">
+        {panes.map((pane, i) => (
+          <div
+            key={pane.id}
+            className="min-w-0"
+            style={{ flex: hasSizes ? paneSizes[i] : 1 }}
           >
-            <PanelRight size={18} strokeWidth={1.75} />
-          </button>
-        )}
+            <PaneTabBar paneId={pane.id} tabs={pane.tabs} />
+          </div>
+        ))}
       </div>
 
-      {rightPanelOpen && (
-        <div
-          className="flex-shrink-0 self-stretch border-l border-border"
-          style={{ width: rightPanelWidth }}
-        />
+      <div
+        className={cn(
+          'flex-shrink-0 self-stretch transition-[margin] duration-300 ease-in-out',
+          rightPanelOpen && 'border-l border-border'
+        )}
+        style={{
+          width: rightPanelWidth ?? 0,
+          marginRight: rightPanelOpen ? 0 : -(rightPanelWidth ?? 0),
+        }}
+      />
+
+      {onToggleRightPanel && (
+        <button
+          onClick={onToggleRightPanel}
+          className={cn(
+            'absolute top-1/2 -translate-y-1/2 z-10 h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md',
+            rightPanelOpen ? 'text-foreground' : 'text-muted-foreground',
+            'hover:text-foreground',
+            'hover:bg-muted/30',
+            'transition-colors duration-150'
+          )}
+          style={{ ...noDragStyle, right: rightPanelOpen ? (rightPanelWidth ?? 0) - 36 : 140 }}
+          title={rightPanelOpen ? 'Close right sidebar' : 'Open right sidebar'}
+          aria-label={rightPanelOpen ? 'Close right sidebar' : 'Open right sidebar'}
+          aria-pressed={!!rightPanelOpen}
+        >
+          <PanelRight size={18} strokeWidth={1.75} />
+        </button>
       )}
 
       {needsCustomWindowControls && (

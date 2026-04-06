@@ -41,6 +41,19 @@ export interface CushionWorkspace {
     order: number;
   }>;
   activeTab?: string | null;
+  panes?: Array<{
+    id: string;
+    tabs: Array<{
+      id: string;
+      filePath: string;
+      isPinned: boolean;
+      isPreview: boolean;
+      order: number;
+    }>;
+    activeFile: string | null;
+  }>;
+  activePaneId?: string | null;
+  paneSizes?: number[];
   rightPanel?: {
     mode: 'chat' | 'none';
     width: number;

@@ -35,6 +35,9 @@ export const DEFAULT_SETTINGS: Required<CushionSettings> = {
 export const DEFAULT_WORKSPACE: Required<CushionWorkspace> = {
   tabs: [],
   activeTab: null,
+  panes: [],
+  activePaneId: null,
+  paneSizes: [],
   rightPanel: { mode: 'none', width: 360 },
   lastOpenFiles: [],
   sidebarWidth: 240,

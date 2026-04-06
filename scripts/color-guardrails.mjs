@@ -10,10 +10,15 @@ const ignoredDirectories = new Set(['node_modules', '.next', 'dist', 'coverage']
 const literalAllowlist = [
   /^apps\/frontend\/app\/globals\.css$/,
   /^apps\/frontend\/styles\/markdown-editor\.css$/,
+  /^apps\/frontend\/styles\/opencode-chat\.css$/,
   /^apps\/frontend\/components\/editor\/pdf-constants\.ts$/,
   /^apps\/frontend\/public\/pdfjs\//,
   /^apps\/frontend\/lib\/pdf-export\.ts$/,
+  /^apps\/frontend\/lib\/codemirror-wysiwyg\/ai-diff\.ts$/,
   /^apps\/frontend\/components\/settings\/AppearanceSettings\.tsx$/,
+  /^apps\/frontend\/components\/settings\/AccentColorPicker\.tsx$/,
+  /^apps\/frontend\/components\/ui\/LogoSpinner\.tsx$/,
+  /^apps\/frontend\/components\/workspace\/FileTreeRow\.tsx$/,
   /^apps\/frontend\/src\/Home\.tsx$/,
 ];
 
@@ -23,6 +28,14 @@ const utilityAllowlist = [
   /^apps\/frontend\/components\/editor\/PdfToolbar\.tsx$/,
   /^apps\/frontend\/components\/editor\/PdfViewerNative\.tsx$/,
   /^apps\/frontend\/components\/editor\/pdf-constants\.ts$/,
+  /^apps\/frontend\/components\/editor\/DictationButton\.tsx$/,
+  /^apps\/frontend\/components\/editor\/EditorTabRow\.tsx$/,
+  /^apps\/frontend\/components\/chat\/CustomizeDialog\.tsx$/,
+  /^apps\/frontend\/components\/chat\/McpsPanel\.tsx$/,
+  /^apps\/frontend\/components\/chat\/NotebookLmPanel\.tsx$/,
+  /^apps\/frontend\/components\/settings\/AccentColorPicker\.tsx$/,
+  /^apps\/frontend\/components\/settings\/DictationPostProcessing\.tsx$/,
+  /^apps\/frontend\/components\/workspace\/WorkspaceModal\.tsx$/,
   /^apps\/frontend\/public\/pdfjs\//,
 ];
 

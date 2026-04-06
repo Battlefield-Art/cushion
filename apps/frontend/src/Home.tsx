@@ -7,7 +7,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
 import { FileBrowser, FileBrowserHandle } from '@/components/workspace/FileBrowser';
 import { WorkspaceModal } from '@/components/workspace/WorkspaceModal';
-import { EditorPanel } from '@/components/editor/EditorPanel';
+import { EditorPaneContainer } from '@/components/editor/EditorPaneContainer';
 import { QuickSwitcher } from '@/components/quick-switcher';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { ToastProvider, useToast } from '@/components/chat/Toast';
@@ -87,7 +87,7 @@ function ToastBridge() {
 }
 
 export default function Home() {
-  const { metadata, openFile, setClient, currentFile, openWorkspace, recentProjects, tabs, setActiveTab, addNewTab, closeFile, removeTab, setCurrentFile, sidebarWidth } = useWorkspaceStore();
+  const { metadata, openFile, setClient, currentFile, openWorkspace, recentProjects, tabs, removeTab, closeFile, sidebarWidth, splitPane } = useWorkspaceStore();
   const connectChat = useChatStore((state) => state.connect);
   const disconnectChat = useChatStore((state) => state.disconnect);
   const syncCurrentFile = useChatStore((state) => state.syncCurrentFile);
@@ -263,6 +263,16 @@ export default function Home() {
     }
   }, [client, openFile, fetchFileTree, filePaths]);
 
+  const handleCloseActiveTab = useCallback(() => {
+    const active = tabs.find((t) => t.isActive) || tabs[0];
+    if (!active) return;
+    if (active.filePath === '__new_tab__') {
+      removeTab(active.id);
+    } else {
+      closeFile(active.filePath);
+    }
+  }, [tabs, closeFile, removeTab]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
@@ -294,10 +304,16 @@ export default function Home() {
         setActiveSession(null).catch(() => undefined);
         return;
       }
+      // Ctrl+\ to split pane
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        splitPane();
+        return;
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [appShortcuts, closeTopmostAppOverlay, focusModeEnabled, setActiveSession, handleNewNote]);
+  }, [appShortcuts, closeTopmostAppOverlay, focusModeEnabled, setActiveSession, handleNewNote, splitPane]);
 
   useEffect(() => {
     if (rightPanelMode !== 'none') {
@@ -345,54 +361,6 @@ export default function Home() {
   const toggleFocusMode = useCallback(() => {
     setFocusModeEnabled((prev) => !prev);
   }, []);
-
-  const handleCloseTab = useCallback(
-    (tabId: string) => {
-      const tab = tabs.find((t) => t.id === tabId);
-      if (!tab) return;
-      if (tab.filePath === '__new_tab__') {
-        removeTab(tabId);
-      } else {
-        closeFile(tab.filePath);
-      }
-      const remaining = useWorkspaceStore.getState().tabs;
-      if (remaining.length > 0) {
-        const active = remaining.find((t) => t.isActive) || remaining[0];
-        setCurrentFile(active.filePath);
-      } else {
-        setCurrentFile(null);
-      }
-    },
-    [tabs, closeFile, removeTab, setCurrentFile]
-  );
-
-  const handleCloseOthers = useCallback(
-    (tabId: string) => {
-      tabs.forEach((t) => {
-        if (t.id !== tabId) handleCloseTab(t.id);
-      });
-    },
-    [tabs, handleCloseTab]
-  );
-
-  const handleCloseToRight = useCallback(
-    (tabId: string) => {
-      const idx = tabs.findIndex((t) => t.id === tabId);
-      if (idx === -1) return;
-      tabs.slice(idx + 1).forEach((t) => handleCloseTab(t.id));
-    },
-    [tabs, handleCloseTab]
-  );
-
-  const handleCloseAll = useCallback(() => {
-    tabs.forEach((t) => handleCloseTab(t.id));
-  }, [tabs, handleCloseTab]);
-
-  const handleCloseActiveTab = useCallback(() => {
-    const active = tabs.find((t) => t.isActive) || tabs[0];
-    if (!active) return;
-    handleCloseTab(active.id);
-  }, [tabs, handleCloseTab]);
 
   const isSidebarHidden = sidebarCollapsed || focusModeEnabled;
 
@@ -494,13 +462,6 @@ export default function Home() {
             }
             toggleSidebarCollapsed();
           }}
-          tabs={tabs}
-          onSelectTab={setActiveTab}
-          onCloseTab={handleCloseTab}
-          onCloseOthers={handleCloseOthers}
-          onCloseToRight={handleCloseToRight}
-          onCloseAll={handleCloseAll}
-          onAddTab={addNewTab}
           rightPanelOpen={rightPanelMode !== 'none'}
           rightPanelWidth={resolvedRightPanelWidth}
           onToggleRightPanel={toggleRightPanel}
@@ -522,7 +483,7 @@ export default function Home() {
 
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           <div className="flex-1 overflow-hidden">
-              <EditorPanel
+              <EditorPaneContainer
                 client={client}
                 onFileRenamed={handleFileRenamed}
                 filePaths={filePaths}
