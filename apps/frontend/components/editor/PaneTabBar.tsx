@@ -65,9 +65,9 @@ export function PaneTabBar({ paneId, tabs }: PaneTabBarProps) {
     [tabs, handleCloseTab]
   );
 
-  const handleCloseAll = useCallback(() => {
+  const handleCloseAll = () => {
     tabs.forEach((t) => handleCloseTab(t.id));
-  }, [tabs, handleCloseTab]);
+  };
 
   const handleDoubleClick = useCallback((tab: TabState) => {
     if (tab.isPreview) {

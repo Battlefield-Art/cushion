@@ -7,7 +7,9 @@ import { useChatStore } from '@/stores/chatStore';
 import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
 import { FileBrowser, FileBrowserHandle } from '@/components/workspace/FileBrowser';
 import { WorkspaceModal } from '@/components/workspace/WorkspaceModal';
-import { EditorPaneContainer } from '@/components/editor/EditorPaneContainer';
+import { Allotment } from 'allotment';
+import 'allotment/dist/style.css';
+import { EditorPane } from '@/components/editor/EditorPane';
 import { QuickSwitcher } from '@/components/quick-switcher';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { ToastProvider, useToast } from '@/components/chat/Toast';
@@ -87,7 +89,7 @@ function ToastBridge() {
 }
 
 export default function Home() {
-  const { metadata, openFile, setClient, currentFile, openWorkspace, recentProjects, tabs, removeTab, closeFile, sidebarWidth, splitPane } = useWorkspaceStore();
+  const { metadata, openFile, setClient, currentFile, openWorkspace, recentProjects, tabs, removeTab, closeFile, sidebarWidth, splitPane, panes, paneSizes, setPaneSizes } = useWorkspaceStore();
   const connectChat = useChatStore((state) => state.connect);
   const disconnectChat = useChatStore((state) => state.disconnect);
   const syncCurrentFile = useChatStore((state) => state.syncCurrentFile);
@@ -257,7 +259,7 @@ export default function Home() {
       await client.saveFile(name, '');
       fileBrowserRef.current?.refreshFileList();
       fetchFileTree();
-      openFile(name, '', true);
+      openFile(name, '');
     } catch (err) {
       console.error('[Page] Failed to create new note:', err);
     }
@@ -304,7 +306,6 @@ export default function Home() {
         setActiveSession(null).catch(() => undefined);
         return;
       }
-      // Ctrl+\ to split pane
       if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
         e.preventDefault();
         splitPane();
@@ -322,8 +323,8 @@ export default function Home() {
   }, [rightPanelMode]);
 
   const handleFileOpen = useCallback(
-    (filePath: string, content: string, forceNewTab?: boolean) => {
-      openFile(filePath, content, forceNewTab);
+    (filePath: string, content: string) => {
+      openFile(filePath, content);
     },
     [openFile]
   );
@@ -414,7 +415,7 @@ export default function Home() {
       await client.saveFile(filePath, '');
       fileBrowserRef.current?.refreshFileList();
       fetchFileTree();
-      openFile(filePath, '', true);
+      openFile(filePath, '');
     } catch (err) {
       console.error('[Page] Failed to create file:', err);
     }
@@ -483,16 +484,27 @@ export default function Home() {
 
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           <div className="flex-1 overflow-hidden">
-              <EditorPaneContainer
-                client={client}
-                onFileRenamed={handleFileRenamed}
-                filePaths={filePaths}
-                focusModeEnabled={focusModeEnabled}
-                onToggleFocusMode={toggleFocusMode}
-                onNewNote={handleNewNote}
-                onGoToFile={() => setShowQuickSwitcher(true)}
-                onAddSelectionToChat={handleAddSelectionToChat}
-              />
+              <Allotment
+                onChange={setPaneSizes}
+                defaultSizes={paneSizes.length === panes.length ? paneSizes : undefined}
+              >
+                {panes.map((pane, i) => (
+                  <Allotment.Pane key={pane.id} minSize={200}>
+                    <EditorPane
+                      paneId={pane.id}
+                      isFirstPane={i === 0}
+                      client={client}
+                      onFileRenamed={handleFileRenamed}
+                      filePaths={filePaths}
+                      focusModeEnabled={focusModeEnabled}
+                      onToggleFocusMode={toggleFocusMode}
+                      onNewNote={handleNewNote}
+                      onGoToFile={() => setShowQuickSwitcher(true)}
+                      onAddSelectionToChat={handleAddSelectionToChat}
+                    />
+                  </Allotment.Pane>
+                ))}
+              </Allotment>
           </div>
 
         </main>

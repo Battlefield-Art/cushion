@@ -27,7 +27,7 @@ function isTextFile(name: string): boolean {
 
 interface FileBrowserProps {
   client: CoordinatorClient | null;
-  onFileOpen: (path: string, content: string, forceNewTab?: boolean) => void;
+  onFileOpen: (path: string, content: string) => void;
   onSidebarToggle?: (collapsed: boolean) => void;
   isCollapsed?: boolean;
   onSearch?: () => void;
@@ -157,24 +157,24 @@ export const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>(
     },
   }), [loadDirectory]);
 
-  const handleFileClick = async (filePath: string, forceNewTab?: boolean) => {
+  const handleFileClick = async (filePath: string) => {
     if (!client) {
       return;
     }
 
     if (BINARY_FILE_EXTENSIONS.test(filePath)) {
-      onFileOpen(filePath, '', forceNewTab);
+      onFileOpen(filePath, '');
       return;
     }
 
     if (useWorkspaceStore.getState().openFiles.has(filePath)) {
-      onFileOpen(filePath, '', forceNewTab);
+      onFileOpen(filePath, '');
       return;
     }
 
     try {
       const { content } = await client.readFile(filePath);
-      onFileOpen(filePath, content, forceNewTab);
+      onFileOpen(filePath, content);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to open file';
       setError(errorMsg);

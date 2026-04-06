@@ -16,52 +16,31 @@ import { parseFrontmatter } from '@/lib/frontmatter';
 interface WorkspaceActions {
   setClient: (client: CoordinatorClient) => void;
 
-  // Workspace lifecycle
   openWorkspace: (projectPath: string) => Promise<void>;
   selectWorkspaceFolder: () => Promise<string | null>;
-  closeWorkspace: () => void;
-
-  // File operations
-  openFile: (filePath: string, content: string, forceNewTab?: boolean) => void;
+  openFile: (filePath: string, content: string) => void;
   closeFile: (filePath: string) => void;
   updateFileContent: (filePath: string, content: string) => void;
   markFileSaved: (filePath: string, content: string) => void;
   replaceOpenFileContent: (filePath: string, content: string) => void;
   setCurrentFile: (filePath: string | null) => void;
 
-  // Tab management
-  addTab: (filePath: string, isPreview?: boolean, paneId?: string) => void;
+  addTab: (filePath: string, isPreview?: boolean) => void;
   addNewTab: () => void;
   removeTab: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
   pinTab: (tabId: string) => void;
   convertPreviewTab: (filePath: string) => void;
 
-  // Pane management
   splitPane: (filePath?: string | null) => void;
   closePane: (paneId: string) => void;
   setActivePane: (paneId: string) => void;
   setPaneSizes: (sizes: number[]) => void;
-  moveTabToPane: (tabId: string, fromPaneId: string, toPaneId: string) => void;
-
-  // Recent history
   addRecentProject: () => void;
-
-  // Preferences
   updatePreferences: (preferences: Partial<WorkspacePreferences>) => void;
-
-  // Layout
   setSidebarWidth: (width: number) => void;
-
-  // Error handling
-  setError: (error: string | null) => void;
-  setLoading: (isLoading: boolean) => void;
-
-  // File tree
   setFlatFileList: (paths: string[]) => void;
 
-  // Utilities
-  reset: () => void;
 }
 
 function createDefaultPane(tabs: TabState[] = [], activeFile: string | null = null): EditorPane {
@@ -74,11 +53,7 @@ function createDefaultPane(tabs: TabState[] = [], activeFile: string | null = nu
 
 const defaultPane = createDefaultPane();
 
-const initialState: Omit<WorkspaceState, keyof WorkspaceActions> & {
-  panes: EditorPane[];
-  activePaneId: string | null;
-  paneSizes: number[];
-} = {
+const initialState: Omit<WorkspaceState, keyof WorkspaceActions> = {
   metadata: null,
   openFiles: new Map(),
   tabs: [],
@@ -87,18 +62,10 @@ const initialState: Omit<WorkspaceState, keyof WorkspaceActions> & {
   activePaneId: defaultPane.id,
   paneSizes: [],
   flatFileList: [],
-  fileWatcher: {
-    watchedPaths: [],
-    ignoredPatterns: [],
-    hasExternalChanges: new Map(),
-  },
   recentProjects: [],
   recentFiles: [],
   preferences: { ...DEFAULT_SETTINGS },
   sidebarWidth: 240,
-  sessionId: '',
-  isLoading: false,
-  error: null,
 };
 
 let coordinatorClient: CoordinatorClient | null = null;
@@ -158,7 +125,6 @@ function extractFrontmatter(filePath: string, content: string): Frontmatter | nu
   return frontmatter;
 }
 
-// Derive compat tabs/currentFile from the active pane
 function deriveCompat(panes: EditorPane[], activePaneId: string | null) {
   const activePane = panes.find((p) => p.id === activePaneId) || panes[0];
   return {
@@ -167,23 +133,15 @@ function deriveCompat(panes: EditorPane[], activePaneId: string | null) {
   };
 }
 
-// Find which pane owns a tab
 function findPaneByTabId(panes: EditorPane[], tabId: string): EditorPane | undefined {
   return panes.find((p) => p.tabs.some((t) => t.id === tabId));
 }
 
-// Find which pane has a file open
 function findPaneByFilePath(panes: EditorPane[], filePath: string): EditorPane | undefined {
   return panes.find((p) => p.tabs.some((t) => t.filePath === filePath));
 }
 
-type StoreState = WorkspaceState & WorkspaceActions & {
-  panes: EditorPane[];
-  activePaneId: string | null;
-  paneSizes: number[];
-};
-
-export const useWorkspaceStore = create<StoreState>()(
+export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
   subscribeWithSelector(
     persist(
       (set, get) => ({
@@ -198,7 +156,6 @@ export const useWorkspaceStore = create<StoreState>()(
             throw new Error('Coordinator client not initialized');
           }
 
-          set({ isLoading: true, error: null });
 
           try {
             const previousProjectPath = get().metadata?.projectPath;
@@ -217,8 +174,6 @@ export const useWorkspaceStore = create<StoreState>()(
               const freshPane = createDefaultPane();
               set((state) => ({
                 metadata,
-                isLoading: false,
-                error: null,
                 openFiles: new Map(),
                 tabs: [],
                 currentFile: null,
@@ -226,26 +181,17 @@ export const useWorkspaceStore = create<StoreState>()(
                 activePaneId: freshPane.id,
                 paneSizes: [],
                 flatFileList: [],
-                fileWatcher: {
-                  ...state.fileWatcher,
-                  hasExternalChanges: new Map(),
-                },
               }));
             } else {
-              set({ metadata, isLoading: false, error: null });
+              set({ metadata });
             }
 
             get().addRecentProject();
 
             window.electronAPI.notifyWorkspaceOpened(projectPath);
           } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : 'Unknown error';
-            set({
-              error: errorMessage,
-              isLoading: false,
-            });
             console.error('[WorkspaceStore] Failed to open workspace:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             throw error instanceof Error ? error : new Error(errorMessage);
           }
         },
@@ -259,23 +205,13 @@ export const useWorkspaceStore = create<StoreState>()(
           return path;
         },
 
-        closeWorkspace: () => {
-          const freshPane = createDefaultPane();
-          set({
-            ...initialState,
-            panes: [freshPane],
-            activePaneId: freshPane.id,
-          });
-        },
-
-        openFile: (filePath: string, content: string, forceNewTab: boolean = false) => {
+        openFile: (filePath: string, content: string) => {
           const { metadata, openFiles, panes, activePaneId } = get();
 
           if (!metadata) {
             return;
           }
 
-          // Check if any pane already has a tab for this file
           const existingPane = findPaneByFilePath(panes, filePath);
           if (existingPane) {
             const existingTab = existingPane.tabs.find((t) => t.filePath === filePath)!;
@@ -322,7 +258,6 @@ export const useWorkspaceStore = create<StoreState>()(
           const newOpenFiles = new Map(openFiles);
           newOpenFiles.set(filePath, fileState);
 
-          // Check for __new_tab__ placeholder in active pane
           const activePane = panes.find((p) => p.id === activePaneId);
           if (activePane) {
             const newTabPlaceholder = activePane.tabs.find((t) => t.filePath === '__new_tab__');
@@ -361,14 +296,12 @@ export const useWorkspaceStore = create<StoreState>()(
           const { openFiles, panes } = get();
 
           const newOpenFiles = new Map(openFiles);
-          // Only remove from openFiles if no other pane has a tab for this file
           const paneWithFile = findPaneByFilePath(panes, filePath);
           const tab = paneWithFile?.tabs.find((t) => t.filePath === filePath);
           if (tab) {
             get().removeTab(tab.id);
           }
 
-          // Check if any remaining pane still has this file open
           const { panes: updatedPanes } = get();
           const stillOpen = findPaneByFilePath(updatedPanes, filePath);
           if (!stillOpen) {
@@ -456,9 +389,9 @@ export const useWorkspaceStore = create<StoreState>()(
           set({ panes: newPanes, currentFile: filePath });
         },
 
-        addTab: (filePath: string, isPreview: boolean = false, paneId?: string) => {
+        addTab: (filePath: string, isPreview: boolean = false) => {
           const { panes, activePaneId } = get();
-          const targetPaneId = paneId || activePaneId;
+          const targetPaneId = activePaneId;
 
           const newPanes = panes.map((p) => {
             if (p.id !== targetPaneId) return p;
@@ -539,7 +472,6 @@ export const useWorkspaceStore = create<StoreState>()(
             newActiveFile = null;
           }
 
-          // If pane is now empty and there are multiple panes, auto-close it
           if (newTabs.length === 0 && panes.length > 1) {
             get().closePane(owningPane.id);
             return;
@@ -655,7 +587,6 @@ export const useWorkspaceStore = create<StoreState>()(
             newActivePaneId = newPanes[neighborIdx].id;
           }
 
-          // Clean up openFiles for files that are no longer in any pane
           const allOpenFilePaths = new Set(newPanes.flatMap((p) => p.tabs.map((t) => t.filePath)));
           const { openFiles } = get();
           const newOpenFiles = new Map(openFiles);
@@ -687,44 +618,6 @@ export const useWorkspaceStore = create<StoreState>()(
           set({ paneSizes: sizes });
         },
 
-        moveTabToPane: (tabId: string, fromPaneId: string, toPaneId: string) => {
-          if (fromPaneId === toPaneId) return;
-          const { panes, activePaneId } = get();
-
-          const fromPane = panes.find((p) => p.id === fromPaneId);
-          const toPane = panes.find((p) => p.id === toPaneId);
-          if (!fromPane || !toPane) return;
-
-          const tab = fromPane.tabs.find((t) => t.id === tabId);
-          if (!tab) return;
-
-          const fromTabs = fromPane.tabs.filter((t) => t.id !== tabId);
-          const toTabs = [...toPane.tabs.map((t) => ({ ...t, isActive: false })), { ...tab, isActive: true, order: toPane.tabs.length }];
-
-          let newFromActiveFile = fromPane.activeFile;
-          if (tab.filePath === fromPane.activeFile && fromTabs.length > 0) {
-            fromTabs[0].isActive = true;
-            newFromActiveFile = fromTabs[0].filePath;
-          } else if (fromTabs.length === 0) {
-            newFromActiveFile = null;
-          }
-
-          let newPanes = panes.map((p) => {
-            if (p.id === fromPaneId) return { ...p, tabs: fromTabs, activeFile: newFromActiveFile };
-            if (p.id === toPaneId) return { ...p, tabs: toTabs, activeFile: tab.filePath };
-            return p;
-          });
-
-          // Auto-close empty from-pane if multiple panes exist
-          if (fromTabs.length === 0 && newPanes.length > 1) {
-            newPanes = newPanes.filter((p) => p.id !== fromPaneId);
-          }
-
-          const newActivePaneId = toPaneId;
-          const compat = deriveCompat(newPanes, newActivePaneId);
-          set({ panes: newPanes, activePaneId: newActivePaneId, paneSizes: [], ...compat });
-        },
-
         addRecentProject: () => {
           const { metadata } = get();
           if (!metadata) return;
@@ -753,25 +646,8 @@ export const useWorkspaceStore = create<StoreState>()(
           set({ sidebarWidth: width });
         },
 
-        setError: (error: string | null) => {
-          set({ error });
-        },
-
-        setLoading: (isLoading: boolean) => {
-          set({ isLoading });
-        },
-
         setFlatFileList: (paths: string[]) => {
           set({ flatFileList: paths });
-        },
-
-        reset: () => {
-          const freshPane = createDefaultPane();
-          set({
-            ...initialState,
-            panes: [freshPane],
-            activePaneId: freshPane.id,
-          });
         },
       }),
       {

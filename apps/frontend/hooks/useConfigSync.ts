@@ -45,7 +45,6 @@ export function useConfigSync({
 }: UseConfigSyncOptions) {
   const configSyncRef = useRef<ConfigSync | null>(null);
   const workspaceConfigLoadedRef = useRef(false);
-  // Preserve the full on-disk settings object so unknown keys survive round-trips
   const lastSettingsRef = useRef<CushionSettings>(DEFAULT_SETTINGS);
 
   // Create / destroy ConfigSync when client connects
@@ -82,26 +81,19 @@ export function useConfigSync({
       if (parsedWorkspace) {
         const merged = { ...DEFAULT_WORKSPACE, ...parsedWorkspace };
 
-        // Restore right panel state
         if (merged.rightPanel) {
           onRightPanelRestore(merged.rightPanel.mode, merged.rightPanel.width);
         }
 
-        // Restore sidebar width
         if (merged.sidebarWidth !== undefined) {
           useWorkspaceStore.getState().setSidebarWidth(merged.sidebarWidth);
         }
 
-        // Restore pane layout (new format) or migrate from legacy tabs
         if (merged.panes && merged.panes.length > 0 && client) {
-          // New pane-based format
           const store = useWorkspaceStore.getState();
-
-          // Collect all file paths from all panes
           const allFilePaths = merged.panes.flatMap((p) => p.tabs.map((t) => t.filePath));
           const uniqueFiles = [...new Set(allFilePaths)];
 
-          // Load all files first
           for (const filePath of uniqueFiles) {
             try {
               const { content } = await client.readFile(filePath);
@@ -112,7 +104,6 @@ export function useConfigSync({
             }
           }
 
-          // Now reconstruct the pane layout
           const restoredPanes = merged.panes.map((savedPane) => ({
             id: savedPane.id,
             tabs: savedPane.tabs.map((t, i) => ({
@@ -126,22 +117,21 @@ export function useConfigSync({
             activeFile: savedPane.activeFile,
           }));
 
-          // Filter out panes whose tabs all failed to load
           const validPanes = restoredPanes.filter((p) =>
             p.tabs.some((t) => store.openFiles.has(t.filePath))
           );
 
           if (validPanes.length > 0) {
-            // Remove tabs for files that failed to load
-            const cleanPanes = validPanes.map((p) => ({
-              ...p,
-              tabs: p.tabs.filter((t) => store.openFiles.has(t.filePath)),
-            })).map((p) => ({
-              ...p,
-              activeFile: p.tabs.some((t) => t.filePath === p.activeFile)
-                ? p.activeFile
-                : p.tabs[0]?.filePath ?? null,
-            }));
+            const cleanPanes = validPanes.map((p) => {
+              const tabs = p.tabs.filter((t) => store.openFiles.has(t.filePath));
+              return {
+                ...p,
+                tabs,
+                activeFile: tabs.some((t) => t.filePath === p.activeFile)
+                  ? p.activeFile
+                  : tabs[0]?.filePath ?? null,
+              };
+            });
 
             const activePaneId = merged.activePaneId && cleanPanes.some((p) => p.id === merged.activePaneId)
               ? merged.activePaneId
@@ -158,7 +148,6 @@ export function useConfigSync({
             });
           }
         } else if (merged.tabs && merged.tabs.length > 0 && client) {
-          // Legacy tab format — migrate to single pane
           const activeFilePath = merged.activeTab;
           for (const tab of merged.tabs) {
             try {
@@ -239,7 +228,6 @@ export function useConfigSync({
     return useWorkspaceStore.subscribe(
       (state) => state.preferences,
       (prefs) => {
-        // Spread over last-read disk object to preserve unknown keys
         const settings: CushionSettings = { ...lastSettingsRef.current, ...prefs };
         lastSettingsRef.current = settings;
         configSyncRef.current?.scheduleWrite('settings.json', settings);
@@ -257,7 +245,6 @@ export function useConfigSync({
         const sync = configSyncRef.current;
         if (!sync) return;
 
-        // Serialize panes
         const serializedPanes = panes.map((p) => ({
           id: p.id,
           tabs: p.tabs.map((t) => ({
@@ -270,19 +257,7 @@ export function useConfigSync({
           activeFile: p.activeFile,
         }));
 
-        // Also write legacy tabs/activeTab for backward compat
-        const activePane = panes.find((p) => p.id === activePaneId) || panes[0];
-        const legacyTabs = activePane?.tabs.map((t) => ({
-          id: t.id,
-          filePath: t.filePath,
-          isPinned: t.isPinned,
-          isPreview: t.isPreview,
-          order: t.order,
-        })) ?? [];
-
         const workspaceData: CushionWorkspace = {
-          tabs: legacyTabs,
-          activeTab: activePane?.activeFile ?? null,
           panes: serializedPanes,
           activePaneId,
           paneSizes,
@@ -411,17 +386,8 @@ export function useConfigSync({
     if (!sync) return;
 
     const { panes, activePaneId, paneSizes, sidebarWidth } = useWorkspaceStore.getState();
-    const activePane = panes.find((p) => p.id === activePaneId) || panes[0];
 
     const workspaceData: CushionWorkspace = {
-      tabs: activePane?.tabs.map((t) => ({
-        id: t.id,
-        filePath: t.filePath,
-        isPinned: t.isPinned,
-        isPreview: t.isPreview,
-        order: t.order,
-      })) ?? [],
-      activeTab: activePane?.activeFile ?? null,
       panes: panes.map((p) => ({
         id: p.id,
         tabs: p.tabs.map((t) => ({

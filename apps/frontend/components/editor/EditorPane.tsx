@@ -174,10 +174,7 @@ export function EditorPane({
 
   const canGoBack = historyRef.current.index > 0;
   const canGoForward = historyRef.current.index < historyRef.current.entries.length - 1;
-  const breadcrumb = useMemo(
-    () => buildEditorBreadcrumb({ projectName, currentFile }),
-    [projectName, currentFile]
-  );
+  const breadcrumb = buildEditorBreadcrumb({ projectName, currentFile });
 
   const goBack = useCallback(() => {
     const h = historyRef.current;
@@ -534,7 +531,6 @@ export function EditorPane({
     onDictationCorrectionRef,
   }), [handleChange, handleSave, handlePasteImages, handleWikiLinkNavigate, filePaths, focusModeEnabled, onAddSelectionToChat]);
 
-  // Files this pane should render
   const paneOpenFiles = useMemo(() => {
     const filePaths = new Set(paneTabs.map((t) => t.filePath));
     return Array.from(openFiles.entries()).filter(([fp]) => filePaths.has(fp));

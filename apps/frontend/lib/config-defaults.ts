@@ -1,10 +1,3 @@
-/**
- * Default values for `.cushion/` config files.
- *
- * Each config type has all-required defaults so that a partial file
- * from disk can be spread over them: `{ ...defaults, ...parsed }`.
- */
-
 import type { CushionSettings, CushionWorkspace, CushionAppearance, CushionChat } from '@cushion/types';
 
 export const DEFAULT_SETTINGS: Required<CushionSettings> = {
