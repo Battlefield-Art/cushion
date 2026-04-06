@@ -46,9 +46,7 @@ export function PandocDownloadGate({ onInstalled }: PandocDownloadGateProps) {
     setState({ phase: 'downloading', percent: 0, downloadedBytes: 0, totalBytes: 0 });
     try {
       await window.electronAPI.coordinatorInvoke('pandoc/ensure-binary', {});
-    } catch {
-      // error handled via notification
-    }
+    } catch {}
   }, []);
 
   const handleCancel = useCallback(async () => {

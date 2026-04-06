@@ -43,7 +43,6 @@ const PANDOC_FORMATS: { value: PandocFormat; label: string; description: string 
   { value: 'odt',   label: 'OpenDocument',  description: 'LibreOffice / OpenOffice' },
   { value: 'latex', label: 'LaTeX',         description: 'TeX typesetting source' },
   { value: 'plain', label: 'Plain Text',    description: 'Stripped plain text' },
-  { value: 'rtf',   label: 'RTF',           description: 'Rich text format' },
 ];
 
 export function ExportOptionsDialog({
@@ -76,7 +75,6 @@ export function ExportOptionsDialog({
           className="bg-modal-bg rounded-lg w-[520px] max-w-[90%] flex flex-col shadow-lg animate-slide-in border border-modal-border"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
           <div className="flex items-start gap-3 px-5 pt-5 pb-4">
             <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-border-subtle text-foreground-muted">
               <FileDown size={20} />
@@ -98,7 +96,6 @@ export function ExportOptionsDialog({
             </button>
           </div>
 
-          {/* Body */}
           <div className="px-5 pb-4 space-y-4">
             <OptionRow label="Page size">
               <SegmentedControl
@@ -163,7 +160,6 @@ export function ExportOptionsDialog({
               </button>
             </OptionRow>
 
-            {/* Advanced Formats button */}
             <div className="flex items-center justify-between pt-1">
               <div>
                 <div className="text-sm font-medium text-foreground">Advanced Formats</div>
@@ -179,7 +175,6 @@ export function ExportOptionsDialog({
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex items-center justify-end gap-2 px-5 pt-4 pb-5">
             <button
               className="px-4 py-2 rounded-md text-sm font-medium cursor-pointer border border-modal-border bg-transparent text-foreground hover:bg-[var(--overlay-10)] transition-all"
@@ -276,7 +271,6 @@ function AdvancedFormatsDialog({
           )}
         </p>
 
-        {/* Pandoc status gate */}
         {checkingPandoc && (
           <div className="px-5 pb-5 flex items-center justify-center py-10">
             <Loader2 size={16} className="animate-spin text-foreground-muted mr-2" />
@@ -290,7 +284,6 @@ function AdvancedFormatsDialog({
           </div>
         )}
 
-        {/* Format list */}
         {!checkingPandoc && pandocReady && (
           <>
             <div className="px-5 pb-4 space-y-1.5 max-h-[55vh] overflow-y-auto thin-scrollbar">
