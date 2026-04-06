@@ -55,6 +55,7 @@
     "katex": "^0.16.28",
     "lucide-react": "^1.7.0",
     "marked": "^17.0.1",
+    "marked-katex-extension": "^5.1.7",
     "monaco-editor": "^0.55.1",
     "morphdom": "^2.7.8",
     "motion": "^12.38.0",

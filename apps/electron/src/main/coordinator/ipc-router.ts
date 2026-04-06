@@ -39,6 +39,13 @@ import {
   handleTrashEmpty,
 } from './handlers/trash';
 
+import { PandocBinaryManager } from './pandoc-binary-manager';
+import {
+  handlePandocBinaryStatus,
+  handlePandocEnsureBinary,
+  handlePandocCancelDownload,
+  handlePandocExport,
+} from './handlers/pandoc';
 import { DictationConfigManager } from './dictation-config';
 import { PostProcessor } from './post-processor';
 import { HotkeyManager } from './hotkey-manager';
@@ -79,6 +86,7 @@ import {
 let workspaceManager: WorkspaceManager;
 let configManager: ConfigManager;
 let configWatcher: ConfigWatcher;
+let pandocBinaryManager: PandocBinaryManager;
 let dictationConfigManager: DictationConfigManager;
 let postProcessor: PostProcessor;
 let hotkeyManager: HotkeyManager;
@@ -159,6 +167,9 @@ export async function initCoordinator(mainWindow: BrowserWindow) {
 
   sherpaBinaryManager = new SherpaBinaryManager(notifyRenderer);
   await sherpaBinaryManager.init();
+
+  pandocBinaryManager = new PandocBinaryManager(notifyRenderer);
+  await pandocBinaryManager.init();
 
   await ensurePermissionDefaults();
 
@@ -388,6 +399,23 @@ export async function initCoordinator(mainWindow: BrowserWindow) {
   ipcMain.handle('coordinator:dictation/ensure-gpu-binary', async () => {
     return handleDictationEnsureGpuBinary(sherpaBinaryManager);
   });
+
+  // Pandoc handlers
+  ipcMain.handle('coordinator:pandoc/binary-status', async () => {
+    return handlePandocBinaryStatus(pandocBinaryManager);
+  });
+
+  ipcMain.handle('coordinator:pandoc/ensure-binary', async () => {
+    return handlePandocEnsureBinary(pandocBinaryManager);
+  });
+
+  ipcMain.handle('coordinator:pandoc/cancel-download', async () => {
+    return handlePandocCancelDownload(pandocBinaryManager);
+  });
+
+  ipcMain.handle('coordinator:pandoc/export', async (_event, params: RPCParams<'pandoc/export'>) => {
+    return handlePandocExport(pandocBinaryManager, params, mainWindow);
+  });
 }
 
 export function stopCoordinator() {
@@ -396,4 +424,5 @@ export function stopCoordinator() {
   hotkeyManager?.dispose();
   sherpaModelManager?.dispose();
   sherpaManager?.dispose();
+  pandocBinaryManager?.cancelDownload();
 }
