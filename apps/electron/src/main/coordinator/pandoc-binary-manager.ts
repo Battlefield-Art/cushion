@@ -9,14 +9,12 @@ import type { PandocBinaryStatus } from '@cushion/types';
 const PANDOC_VERSION = '3.6.4';
 const GITHUB_RELEASE_URL = `https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}`;
 
-const V = PANDOC_VERSION;
-
 const PANDOC_BINARIES: Record<string, { archiveName: string; binaryName: string }> = {
-  'win32-x64':    { archiveName: `pandoc-${V}-windows-x86_64.zip`,      binaryName: 'pandoc.exe' },
-  'darwin-arm64': { archiveName: `pandoc-${V}-arm64-macOS.zip`,          binaryName: 'pandoc' },
-  'darwin-x64':   { archiveName: `pandoc-${V}-x86_64-macOS.zip`,        binaryName: 'pandoc' },
-  'linux-x64':    { archiveName: `pandoc-${V}-linux-amd64.tar.gz`,      binaryName: 'pandoc' },
-  'linux-arm64':  { archiveName: `pandoc-${V}-linux-arm64.tar.gz`,      binaryName: 'pandoc' },
+  'win32-x64':    { archiveName: `pandoc-${PANDOC_VERSION}-windows-x86_64.zip`,      binaryName: 'pandoc.exe' },
+  'darwin-arm64': { archiveName: `pandoc-${PANDOC_VERSION}-arm64-macOS.zip`,          binaryName: 'pandoc' },
+  'darwin-x64':   { archiveName: `pandoc-${PANDOC_VERSION}-x86_64-macOS.zip`,        binaryName: 'pandoc' },
+  'linux-x64':    { archiveName: `pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz`,      binaryName: 'pandoc' },
+  'linux-arm64':  { archiveName: `pandoc-${PANDOC_VERSION}-linux-arm64.tar.gz`,      binaryName: 'pandoc' },
 };
 
 const MAX_REDIRECTS = 5;
@@ -33,7 +31,6 @@ export class PandocBinaryManager {
   private binDir: string;
   private notify: NotifyFn;
   private abortController: AbortController | null = null;
-  private cachedStatus: PandocBinaryStatus | null = null;
 
   constructor(notify: NotifyFn) {
     this.notify = notify;
@@ -61,28 +58,25 @@ export class PandocBinaryManager {
   async isBinaryAvailable(): Promise<PandocBinaryStatus> {
     const system = await this.checkSystemPandoc();
     if (system) {
-      this.cachedStatus = {
+      return {
         available: true,
         path: system.path,
         version: system.version,
         source: 'system',
       };
-      return this.cachedStatus;
     }
 
     const managed = this.getManagedPath();
     if (managed && existsSync(managed)) {
-      this.cachedStatus = {
+      return {
         available: true,
         path: managed,
         version: PANDOC_VERSION,
         source: 'managed',
       };
-      return this.cachedStatus;
     }
 
-    this.cachedStatus = { available: false, path: null, version: null, source: null };
-    return this.cachedStatus;
+    return { available: false, path: null, version: null, source: null };
   }
 
   async ensureBinary(): Promise<{ path: string }> {
@@ -98,10 +92,6 @@ export class PandocBinaryManager {
       return { cancelled: true };
     }
     return { cancelled: false };
-  }
-
-  getPandocPath(): string | null {
-    return this.cachedStatus?.path ?? null;
   }
 
   private checkSystemPandoc(): Promise<{ available: boolean; path: string; version: string } | null> {
@@ -140,7 +130,7 @@ export class PandocBinaryManager {
 
     try {
       const url = `${GITHUB_RELEASE_URL}/${config.archiveName}`;
-      await this.downloadFile(url, archivePath, 'pandoc/download');
+      await this.downloadWithRedirects(url, archivePath, 0, 'pandoc/download');
 
       await fs.mkdir(extractDir, { recursive: true });
       await this.extractArchive(archivePath, extractDir);
@@ -154,7 +144,6 @@ export class PandocBinaryManager {
         await fs.chmod(outputPath, 0o755);
       }
 
-      // macOS: remove quarantine flag
       if (process.platform === 'darwin') {
         await new Promise<void>((resolve) => {
           execFile('xattr', ['-dr', 'com.apple.quarantine', outputPath], { timeout: 5000 }, () => resolve());
@@ -215,10 +204,6 @@ export class PandocBinaryManager {
       }
     }
     return null;
-  }
-
-  private downloadFile(url: string, destPath: string, notifyPrefix: string): Promise<void> {
-    return this.downloadWithRedirects(url, destPath, 0, notifyPrefix);
   }
 
   private downloadWithRedirects(url: string, destPath: string, redirectCount: number, notifyPrefix: string): Promise<void> {

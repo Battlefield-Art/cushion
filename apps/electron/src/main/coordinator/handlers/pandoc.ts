@@ -4,19 +4,10 @@ import { writeFile, unlink } from 'fs/promises';
 import { execFile as execFileCb } from 'child_process';
 import { promisify } from 'util';
 import { app, dialog, type BrowserWindow } from 'electron';
-import type { PandocFormat, PandocBinaryStatus } from '@cushion/types';
+import { PANDOC_FORMAT_META, type PandocFormat, type PandocBinaryStatus } from '@cushion/types';
 import type { PandocBinaryManager } from '../pandoc-binary-manager';
 
 const execFilePromise = promisify(execFileCb);
-
-const FORMAT_META: Record<PandocFormat, { extension: string; filterName: string }> = {
-  docx:  { extension: 'docx', filterName: 'Word Document' },
-  epub:  { extension: 'epub', filterName: 'EPUB' },
-  html:  { extension: 'html', filterName: 'HTML' },
-  odt:   { extension: 'odt',  filterName: 'OpenDocument Text' },
-  latex: { extension: 'tex',  filterName: 'LaTeX' },
-  plain: { extension: 'txt',  filterName: 'Plain Text' },
-};
 
 export function handlePandocBinaryStatus(manager: PandocBinaryManager): Promise<PandocBinaryStatus> {
   return manager.isBinaryAvailable();
@@ -38,7 +29,7 @@ export async function handlePandocExport(
   const status = await manager.isBinaryAvailable();
   if (!status.available || !status.path) throw new Error('Pandoc not available');
 
-  const meta = FORMAT_META[params.format];
+  const meta = PANDOC_FORMAT_META[params.format];
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     defaultPath: `${params.title}.${meta.extension}`,
     filters: [{ name: meta.filterName, extensions: [meta.extension] }],

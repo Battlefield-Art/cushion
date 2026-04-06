@@ -58,7 +58,6 @@ function preprocessForPandocExport(markdown: string, filePaths: string[], worksp
     return `[${label}](${fullHref})`;
   });
 
-  // Resolve standard markdown images to absolute paths
   result = result.replace(STD_IMAGE_REGEX, (match, alt: string, href: string) => {
     if (/^https?:\/\/|^data:/.test(href)) return match;
     const clean = href.replace(/^<|>$/g, '');

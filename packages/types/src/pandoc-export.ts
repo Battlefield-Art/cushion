@@ -1,11 +1,5 @@
 export type PandocFormat = 'docx' | 'epub' | 'html' | 'odt' | 'latex' | 'plain';
 
-export type ExportFormat = 'pdf' | PandocFormat;
-
-export interface PandocExportOptions {
-  format: PandocFormat;
-}
-
 export interface PandocBinaryStatus {
   available: boolean;
   path: string | null;
