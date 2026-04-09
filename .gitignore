@@ -9,6 +9,9 @@ notes/
 # AI tools
 .claude/
 
+# Extensions (local user extensions)
+.cushion/
+
 # Build outputs
 dist/
 build/

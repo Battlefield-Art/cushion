@@ -10,7 +10,7 @@ import { useDictationStore } from '@/stores/dictationStore';
 import { useMediaQuery } from 'usehooks-ts';
 import { ResizeHandle } from '@/components/ui/ResizeHandle';
 import { LogoSpinner } from '@/components/ui/LogoSpinner';
-import { BINARY_FILE_EXTENSIONS } from '@/lib/binary-extensions';
+import { isBinaryFile } from '@/lib/view-registry';
 import { resolveConflict } from '@/lib/conflict-resolution';
 import { useToast } from '@/components/chat/Toast';
 import { cn } from '@/lib/utils';
@@ -162,7 +162,7 @@ export const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>(
       return;
     }
 
-    if (BINARY_FILE_EXTENSIONS.test(filePath)) {
+    if (isBinaryFile(filePath)) {
       onFileOpen(filePath, '');
       return;
     }

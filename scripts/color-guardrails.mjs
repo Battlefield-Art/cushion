@@ -26,7 +26,7 @@ const literalAllowlist = [
 // PdfToolbar uses text-white/border-white for contrast on accent backgrounds
 const utilityAllowlist = [
   /^apps\/frontend\/components\/editor\/PdfToolbar\.tsx$/,
-  /^apps\/frontend\/components\/editor\/PdfViewerNative\.tsx$/,
+  /^apps\/frontend\/components\/editor\/PdfExtension\.tsx$/,
   /^apps\/frontend\/components\/editor\/pdf-constants\.ts$/,
   /^apps\/frontend\/components\/editor\/DictationButton\.tsx$/,
   /^apps\/frontend\/components\/editor\/EditorTabRow\.tsx$/,

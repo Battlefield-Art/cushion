@@ -8,7 +8,7 @@ const frontendRoot = resolve(__dirname, '../frontend');
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@cushion/extension-api'] })],
     build: {
       outDir: 'out/main',
       lib: {
@@ -36,6 +36,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': frontendRoot,
+        '@extensions': resolve(__dirname, '../../packages/extension-api/manifests'),
       },
     },
     css: {

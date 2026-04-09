@@ -11,6 +11,7 @@
     "type-check": "tsc -b"
   },
   "dependencies": {
+    "@cushion/extension-api": "workspace:*",
     "@cushion/types": "workspace:*",
     "chokidar": "^5.0.0",
     "ignore": "^7.0.5",

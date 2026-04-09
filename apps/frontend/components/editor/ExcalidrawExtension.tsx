@@ -1,9 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Excalidraw } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
-import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
-import { useAppearanceStore } from '@/stores/appearanceStore';
-import type { ViewProps } from '@/lib/view-registry';
+import type { ExtensionContext } from '@cushion/extension-api';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 
 if (typeof window !== 'undefined') {
@@ -19,7 +17,6 @@ const DEFAULT_SCENE = {
   files: {},
 };
 
-// appState keys to strip before saving (volatile/session-only state)
 const VOLATILE_APP_STATE_KEYS = new Set([
   'collaborators',
   'cursorButton',
@@ -40,7 +37,7 @@ const VOLATILE_APP_STATE_KEYS = new Set([
   'previousSelectedElementIds',
 ]);
 
-export function ExcalidrawView({ filePath }: ViewProps) {
+export function ExcalidrawExtension({ ctx }: { ctx: ExtensionContext }) {
   const [initialData, setInitialData] = useState<Record<string, any> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,14 +46,9 @@ export function ExcalidrawView({ filePath }: ViewProps) {
     setInitialData(null);
     setError(null);
 
-    getSharedCoordinatorClient()
-      .then((client) => {
+    ctx.file.read()
+      .then((content) => {
         if (cancelled) return;
-        return client.readFile(filePath);
-      })
-      .then((result) => {
-        if (cancelled || !result) return;
-        const { content } = result;
         if (!content || !content.trim()) {
           setInitialData(DEFAULT_SCENE);
           return;
@@ -73,7 +65,7 @@ export function ExcalidrawView({ filePath }: ViewProps) {
       });
 
     return () => { cancelled = true; };
-  }, [filePath]);
+  }, [ctx.file]);
 
   if (error) {
     return (
@@ -91,29 +83,20 @@ export function ExcalidrawView({ filePath }: ViewProps) {
     );
   }
 
-  return <ExcalidrawCanvas key={filePath} filePath={filePath} initialData={initialData} />;
+  return <ExcalidrawCanvas ctx={ctx} initialData={initialData} />;
 }
 
 interface ExcalidrawCanvasProps {
-  filePath: string;
+  ctx: ExtensionContext;
   initialData: Record<string, any>;
 }
 
-function ExcalidrawCanvas({ filePath, initialData }: ExcalidrawCanvasProps) {
-  const resolvedTheme = useAppearanceStore((s) => s.resolvedTheme);
+function ExcalidrawCanvas({ ctx, initialData }: ExcalidrawCanvasProps) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const elementsRef = useRef<any[]>(initialData.elements ?? []);
   const appStateRef = useRef<Record<string, any>>(initialData.appState ?? {});
   const filesRef = useRef<Record<string, any>>(initialData.files ?? {});
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const filePathRef = useRef(filePath);
-  // skip our own saves
-  const lastSavedJsonRef = useRef<string | null>(null);
   const mountedRef = useRef(false);
-
-  useEffect(() => {
-    filePathRef.current = filePath;
-  }, [filePath]);
 
   const buildJson = useCallback(() => {
     const cleanAppState: Record<string, any> = {};
@@ -132,45 +115,10 @@ function ExcalidrawCanvas({ filePath, initialData }: ExcalidrawCanvasProps) {
     }, null, 2);
   }, []);
 
-  const flush = useCallback(async () => {
-    const json = buildJson();
-    try {
-      const client = await getSharedCoordinatorClient();
-      lastSavedJsonRef.current = json;
-      await client.saveFile(filePathRef.current, json);
-    } catch (err) {
-      console.error('[ExcalidrawView] Save failed:', err);
-    }
-  }, [buildJson]);
-
-  const scheduleSave = useCallback(() => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(flush, 1000);
-  }, [flush]);
-
   useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-        flush();
-      }
-    };
-  }, [flush]);
-
-  // Watch for external file changes
-  useEffect(() => {
-    let unsubDisk: (() => void) | undefined;
-    let unsubFiles: (() => void) | undefined;
-
-    const reload = async () => {
+    return ctx.file.onExternalChange((content) => {
+      if (!content?.trim()) return;
       try {
-        const client = await getSharedCoordinatorClient();
-        const { content } = await client.readFile(filePathRef.current);
-        if (!content?.trim()) return;
-
-        // If it matches what we last saved, it's our own write — skip
-        if (content === lastSavedJsonRef.current) return;
-
         const parsed = JSON.parse(content);
         const api = apiRef.current;
         if (api) {
@@ -178,25 +126,9 @@ function ExcalidrawCanvas({ filePath, initialData }: ExcalidrawCanvasProps) {
           elementsRef.current = parsed.elements ?? [];
           filesRef.current = parsed.files ?? {};
         }
-      } catch {
-        // File may have been deleted or is invalid JSON
-      }
-    };
-
-    getSharedCoordinatorClient().then((client) => {
-      unsubDisk = client.onFileChangedOnDisk((changedPath) => {
-        if (changedPath !== filePath) return;
-        reload();
-      });
-
-      unsubFiles = client.onFilesChanged((changes) => {
-        if (!changes.some((c) => c.path === filePath)) return;
-        reload();
-      });
+      } catch {}
     });
-
-    return () => { unsubDisk?.(); unsubFiles?.(); };
-  }, [filePath]);
+  }, [ctx.file]);
 
   const handleChange = useCallback(
     (elements: readonly any[], appState: Record<string, any>, files: any) => {
@@ -209,13 +141,13 @@ function ExcalidrawCanvas({ filePath, initialData }: ExcalidrawCanvasProps) {
         return;
       }
 
-      scheduleSave();
+      ctx.file.update(buildJson());
     },
-    [scheduleSave],
+    [ctx.file, buildJson],
   );
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full min-w-0 overflow-hidden">
       <Excalidraw
         excalidrawAPI={(api) => { apiRef.current = api; }}
         initialData={{
@@ -224,7 +156,7 @@ function ExcalidrawCanvas({ filePath, initialData }: ExcalidrawCanvasProps) {
           files: initialData.files,
         }}
         onChange={handleChange}
-        theme={resolvedTheme}
+        theme={ctx.theme}
         UIOptions={{
           canvasActions: {
             loadScene: false,

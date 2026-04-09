@@ -8,7 +8,7 @@ import { buildNewFilePath } from '@/lib/wiki-link-resolver';
 import { uint8ArrayToBase64 } from '@/lib/pdf-bytes';
 import type { CoordinatorClient } from '@/lib/coordinator-client';
 import type { EditorView } from '@codemirror/view';
-import { BINARY_FILE_EXTENSIONS } from '@/lib/binary-extensions';
+import { isBinaryFile } from '@/lib/view-registry';
 import type { WikiLinkNavigateCallback } from '@/lib/codemirror-wysiwyg';
 import { DiffReviewBar } from './DiffReviewBar';
 import { useDiffReviewStore } from '@/stores/diffReviewStore';
@@ -17,6 +17,7 @@ import { exportWithPandoc } from '@/lib/pandoc-export';
 import { ExportOptionsDialog } from './ExportOptionsDialog';
 import type { PdfExportOptions, PandocFormat } from '@cushion/types';
 import { getViewForFile } from '@/lib/view-registry';
+import { ExtensionHost } from './ExtensionHost';
 import { EditorPanelProvider } from './EditorPanelContext';
 import { RecordingOverlay } from './RecordingOverlay';
 import { setInsertTextCallback, setGetNoteContextCallback, setOnTextInsertedCallback, useDictationStore } from '@/stores/dictationStore';
@@ -285,8 +286,7 @@ export function EditorPane({
     ({ files, view, filePath }: { files: File[]; view: EditorView; filePath: string }) => {
       if (!files.length) return;
 
-      const noteDir = filePath.split('/').slice(0, -1).join('/');
-      const pasteFolder = joinWorkspacePath(noteDir, '.attachments');
+      const pasteFolder = '.cushion/attachments';
 
       const selection = view.state.selection.main;
       const timestamp = new Date();
@@ -295,15 +295,6 @@ export function EditorPane({
         const filename = buildPastedImageName(timestamp, index, extension);
         const relativePath = joinWorkspacePath(pasteFolder, filename);
         return { file, relativePath };
-      });
-
-      const insertText = targets
-        .map((target) => `![[${target.relativePath}]]`)
-        .join('\n');
-
-      view.dispatch({
-        changes: { from: selection.from, to: selection.to, insert: insertText },
-        selection: { anchor: selection.from + insertText.length },
       });
 
       void (async () => {
@@ -323,6 +314,15 @@ export function EditorPane({
             alert('Failed to save pasted image: ' + target.relativePath);
           }
         }
+
+        const insertText = targets
+          .map((target) => `![[${target.relativePath}]]`)
+          .join('\n');
+
+        view.dispatch({
+          changes: { from: selection.from, to: selection.to, insert: insertText },
+          selection: { anchor: selection.from + insertText.length },
+        });
       })();
     },
     [client]
@@ -483,7 +483,7 @@ export function EditorPane({
     async (href, resolvedPath, createIfMissing) => {
       if (resolvedPath) {
         try {
-          if (BINARY_FILE_EXTENSIONS.test(resolvedPath)) {
+          if (isBinaryFile(resolvedPath)) {
             openFile(resolvedPath, '');
             return;
           }
@@ -586,8 +586,8 @@ export function EditorPane({
 
           if (resolved) {
             return (
-              <div key={fp} style={{ display: isActive ? undefined : 'none', height: isActive ? '100%' : undefined }} className={isActive ? 'contents' : undefined}>
-                <resolved.component filePath={fp} />
+              <div key={fp} style={{ display: isActive ? undefined : 'none', height: isActive ? '100%' : undefined }}>
+                <ExtensionHost filePath={fp} component={resolved.component} binary={resolved.binary} isActive={isActive} />
               </div>
             );
           }
@@ -604,6 +604,13 @@ export function EditorPane({
           }
 
           if (isActive) {
+            if (isBinaryFile(fp)) {
+              return (
+                <div key={fp} className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                  No viewer available for this file type
+                </div>
+              );
+            }
             return (
               <div key={fp} className="contents">
                 <Suspense fallback={<div className="flex-1" />}>

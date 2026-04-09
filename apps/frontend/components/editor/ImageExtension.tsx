@@ -1,43 +1,31 @@
-
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatShortcutList, useShortcutBindings, useShortcutHandler } from '@/lib/shortcuts';
-import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
-import type { ViewProps } from '@/lib/view-registry';
+import type { ExtensionContext } from '@cushion/extension-api';
 
 const IMAGE_SHORTCUT_IDS = ['image.zoom.in', 'image.zoom.out', 'image.reset'] as const;
 
-export function ImageViewer({ filePath }: ViewProps) {
-  const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
+const MIME_MAP: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+};
 
-  useEffect(() => {
-    let cancelled = false;
-    getSharedCoordinatorClient().then((client) => {
-      if (cancelled) return;
-      return client.readFileBase64(filePath);
-    }).then((result) => {
-      if (!cancelled && result) setImageData({ base64: result.base64, mimeType: result.mimeType });
-    }).catch((err) => {
-      console.error('[ImageViewer] Failed to load image:', err);
-    });
-    return () => { cancelled = true; };
-  }, [filePath]);
-
-  if (!imageData) {
-    return <div className="flex items-center justify-center h-full text-muted-foreground">Loading image…</div>;
-  }
-
-  return <ImageViewerInner filePath={filePath} base64Data={imageData.base64} mimeType={imageData.mimeType} />;
+function getMimeType(filePath: string): string {
+  const dot = filePath.lastIndexOf('.');
+  if (dot < 0) return 'application/octet-stream';
+  const ext = filePath.slice(dot + 1).toLowerCase();
+  return MIME_MAP[ext] ?? 'application/octet-stream';
 }
 
-interface ImageViewerInnerProps {
-  filePath: string;
-  base64Data: string;
-  mimeType: string;
-}
-
-function ImageViewerInner({ filePath, base64Data, mimeType }: ImageViewerInnerProps) {
+export function ImageExtension({ ctx }: { ctx: ExtensionContext }) {
+  const [base64, setBase64] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -46,14 +34,31 @@ function ImageViewerInner({ filePath, base64Data, mimeType }: ImageViewerInnerPr
   const containerRef = useRef<HTMLDivElement>(null);
   const imageShortcuts = useShortcutBindings(IMAGE_SHORTCUT_IDS);
 
-  const fileName = filePath.split(/[/\\]/).pop() || filePath;
-  const dataUri = `data:${mimeType};base64,${base64Data}`;
+  const mimeType = getMimeType(ctx.filePath);
+  const fileName = ctx.filePath.split(/[/\\]/).pop() || ctx.filePath;
+
+  useEffect(() => {
+    let cancelled = false;
+    ctx.file.read().then((data) => {
+      if (!cancelled) setBase64(data);
+    }).catch((err) => {
+      console.error('[ImageExtension] Failed to load image:', err);
+    });
+    return () => { cancelled = true; };
+  }, [ctx.file]);
+
+  useEffect(() => {
+    return ctx.file.onExternalChange((content) => {
+      if (content === null) {
+        ctx.file.read().then(setBase64).catch(() => {});
+      }
+    });
+  }, [ctx.file]);
 
   const zoomIn = useCallback(() => setScale(s => Math.min(s * 1.25, 10)), []);
   const zoomOut = useCallback(() => setScale(s => Math.max(s / 1.25, 0.1)), []);
   const resetView = useCallback(() => { setScale(1); setPosition({ x: 0, y: 0 }); }, []);
 
-  // Ctrl+Scroll zoom — non-customizable platform gesture, not in shortcut registry
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -67,14 +72,13 @@ function ImageViewerInner({ filePath, base64Data, mimeType }: ImageViewerInnerPr
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
-  // Keyboard shortcuts (US-E1)
-  const imageHandlers = useMemo(() => ({
-    'image.zoom.in': () => { zoomIn(); },
-    'image.zoom.out': () => { zoomOut(); },
-    'image.reset': () => { resetView(); },
-  } as const), [zoomIn, zoomOut, resetView]);
+  const imageHandlers = {
+    'image.zoom.in': zoomIn,
+    'image.zoom.out': zoomOut,
+    'image.reset': resetView,
+  } as const;
 
-  useShortcutHandler({ handlers: imageHandlers });
+  useShortcutHandler({ handlers: imageHandlers, enabled: ctx.isActive });
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -94,9 +98,14 @@ function ImageViewerInner({ filePath, base64Data, mimeType }: ImageViewerInnerPr
 
   const onPointerUp = useCallback(() => setDragging(false), []);
 
+  if (!base64) {
+    return <div className="flex items-center justify-center h-full text-muted-foreground">Loading image…</div>;
+  }
+
+  const dataUri = `data:${mimeType};base64,${base64}`;
+
   return (
     <div className="flex flex-col h-full w-full">
-      {/* Toolbar */}
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border/50 flex-shrink-0">
         <span className="text-sm text-muted-foreground truncate mr-auto">{fileName}</span>
         <button
@@ -132,7 +141,6 @@ function ImageViewerInner({ filePath, base64Data, mimeType }: ImageViewerInnerPr
         </button>
       </div>
 
-      {/* Image canvas */}
       <div
         ref={containerRef}
         className={cn(

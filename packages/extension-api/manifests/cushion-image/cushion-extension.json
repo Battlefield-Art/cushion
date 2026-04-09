@@ -1,0 +1,9 @@
+{
+  "id": "cushion.image-viewer",
+  "name": "Image Viewer",
+  "version": "0.1.0",
+  "description": "View image files",
+  "fileTypes": [
+    { "extensions": ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"], "binary": true }
+  ]
+}

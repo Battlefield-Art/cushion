@@ -1,10 +1,11 @@
 
 import { useState } from 'react';
-import { AudioLines, Keyboard, Palette, Settings as SettingsIcon, SlidersHorizontal, X } from 'lucide-react';
+import { AudioLines, Keyboard, Palette, Puzzle, Settings as SettingsIcon, SlidersHorizontal, X } from 'lucide-react';
 import { ShortcutsSettings } from './ShortcutsSettings';
 import { ConfigSettings } from './ConfigSettings';
 import { AppearanceSettings } from './AppearanceSettings';
 import { DictationSettings } from './DictationSettings';
+import { ExtensionsSettings } from './ExtensionsSettings';
 import { cn } from '@/lib/utils';
 
 interface SettingsPanelProps {
@@ -16,6 +17,7 @@ const sections = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'dictation', label: 'Whisper', icon: AudioLines },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
+  { id: 'extensions', label: 'Extensions', icon: Puzzle },
 ] as const;
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
@@ -65,6 +67,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           {activeSection === 'appearance' && <AppearanceSettings />}
           {activeSection === 'dictation' && <DictationSettings />}
           {activeSection === 'shortcuts' && <ShortcutsSettings />}
+          {activeSection === 'extensions' && <ExtensionsSettings />}
         </section>
       </div>
     </div>

@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { registerBuiltinViews } from '@/lib/register-builtin-views';
-
-registerBuiltinViews();
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useChatStore } from '@/stores/chatStore';
 import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
@@ -27,9 +25,10 @@ import { useExplorerStore } from '@/stores/explorerStore';
 import { useConfigSync } from '@/hooks/useConfigSync';
 import { useDiffReviewBridge } from '@/hooks/useDiffReviewBridge';
 import { EditorTabRow } from '@/components/editor/EditorTabRow';
-import { BINARY_FILE_EXTENSIONS } from '@/lib/binary-extensions';
+import { isBinaryFile } from '@/lib/view-registry';
 import { LogoSpinner } from '@/components/ui/LogoSpinner';
 import type { CoordinatorClient } from '@/lib/coordinator-client';
+import { loadGlobalExtensions, unloadExternalExtensions } from '@/lib/extension-loader';
 
 const APP_SHORTCUT_IDS = [
   'app.quickSwitcher.open',
@@ -161,7 +160,7 @@ export default function Home() {
           useDictationStore.getState().setClient(shared);
         }
       } catch (err) {
-        console.error('[Page] Failed to connect to coordinator:', err);
+        console.error('[Home] Failed to connect to coordinator:', err);
       }
     }
 
@@ -172,6 +171,26 @@ export default function Home() {
   }, [setClient]);
 
   useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+
+    async function loadExtensions() {
+      unloadExternalExtensions();
+      let disabled: Set<string> | undefined;
+      try {
+        disabled = await loadGlobalExtensions(client!, !!metadata?.projectPath);
+      } catch (err) {
+        console.warn('[Home] Failed to load global extensions:', err);
+      }
+      if (cancelled) return;
+      registerBuiltinViews(disabled);
+    }
+
+    loadExtensions();
+    return () => { cancelled = true; };
+  }, [client, metadata?.projectPath]);
+
+  useEffect(() => {
     const directory = metadata?.projectPath;
     if (!directory) {
       disconnectChat();
@@ -179,7 +198,7 @@ export default function Home() {
     }
 
     connectChat(directory).catch((err) => {
-      console.error('[Page] Failed to connect to OpenCode:', err);
+      console.error('[Home] Failed to connect to OpenCode:', err);
     });
 
     return () => {
@@ -261,7 +280,7 @@ export default function Home() {
       fetchFileTree();
       openFile(name, '');
     } catch (err) {
-      console.error('[Page] Failed to create new note:', err);
+      console.error('[Home] Failed to create new note:', err);
     }
   }, [client, openFile, fetchFileTree, filePaths]);
 
@@ -392,7 +411,7 @@ export default function Home() {
     if (!client) return;
 
     try {
-      if (BINARY_FILE_EXTENSIONS.test(filePath)) {
+      if (isBinaryFile(filePath)) {
         openFile(filePath, '');
         return;
       }
@@ -403,7 +422,7 @@ export default function Home() {
       const { content } = await client.readFile(filePath);
       openFile(filePath, content);
     } catch (err) {
-      console.error('[Page] Failed to navigate to file:', err);
+      console.error('[Home] Failed to navigate to file:', err);
     }
   }, [client, openFile]);
 
@@ -417,7 +436,7 @@ export default function Home() {
       fetchFileTree();
       openFile(filePath, '');
     } catch (err) {
-      console.error('[Page] Failed to create file:', err);
+      console.error('[Home] Failed to create file:', err);
     }
   }, [client, openFile, fetchFileTree]);
 

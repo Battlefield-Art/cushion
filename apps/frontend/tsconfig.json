@@ -16,12 +16,16 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@extensions/*": ["../../packages/extension-api/manifests/*"]
     }
   },
   "references": [
     {
       "path": "../../packages/types"
+    },
+    {
+      "path": "../../packages/extension-api"
     }
   ],
   "include": [
