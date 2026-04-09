@@ -51,6 +51,7 @@ bun run package:electron
 
 ## Roadmap
 
+- [X] Extensions support
 - [ ] CSV and XLSX file support
 - [ ] Canvas for connecting notes visually
 - [X] Split page view
