@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useDiffReviewStore } from '@/stores/diffReviewStore';
-import { isBinaryFile } from '@/lib/binary-extensions';
+import { isBinaryFile } from '@/lib/view-registry';
 import type { CoordinatorClient } from '@/lib/coordinator-client';
 import type { WorkspaceMetadata } from '@cushion/types';
 

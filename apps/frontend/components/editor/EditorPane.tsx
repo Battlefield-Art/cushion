@@ -8,7 +8,7 @@ import { buildNewFilePath } from '@/lib/wiki-link-resolver';
 import { uint8ArrayToBase64 } from '@/lib/pdf-bytes';
 import type { CoordinatorClient } from '@/lib/coordinator-client';
 import type { EditorView } from '@codemirror/view';
-import { isBinaryFile } from '@/lib/binary-extensions';
+import { isBinaryFile } from '@/lib/view-registry';
 import type { WikiLinkNavigateCallback } from '@/lib/codemirror-wysiwyg';
 import { DiffReviewBar } from './DiffReviewBar';
 import { useDiffReviewStore } from '@/stores/diffReviewStore';
@@ -585,16 +585,9 @@ export function EditorPane({
           const isMarkdown = /\.(md|markdown)$/i.test(fp);
 
           if (resolved) {
-            if (resolved.source === 'extension' || resolved.source === 'bundled') {
-              return (
-                <div key={fp} style={{ display: isActive ? undefined : 'none', height: isActive ? '100%' : undefined }}>
-                  <ExtensionHost filePath={fp} component={resolved.component} binary={resolved.binary} isActive={isActive} />
-                </div>
-              );
-            }
             return (
-              <div key={fp} style={{ display: isActive ? undefined : 'none', height: isActive ? '100%' : undefined }} className={isActive ? 'contents' : undefined}>
-                <resolved.component filePath={fp} />
+              <div key={fp} style={{ display: isActive ? undefined : 'none', height: isActive ? '100%' : undefined }}>
+                <ExtensionHost filePath={fp} component={resolved.component} binary={resolved.binary} isActive={isActive} />
               </div>
             );
           }

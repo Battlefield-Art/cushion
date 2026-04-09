@@ -1,11 +1,6 @@
 import type { ExtensionManifest } from './manifest.js';
 
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-}
-
-export function validateManifest(value: unknown): ValidationResult {
+function validateManifest(value: unknown): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -68,7 +63,6 @@ export function validateManifest(value: unknown): ValidationResult {
   return { valid: errors.length === 0, errors };
 }
 
-/** Type guard: returns the manifest if valid, null otherwise. */
 export function parseManifest(value: unknown): ExtensionManifest | null {
   const result = validateManifest(value);
   return result.valid ? (value as ExtensionManifest) : null;

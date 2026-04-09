@@ -25,7 +25,7 @@ import { useExplorerStore } from '@/stores/explorerStore';
 import { useConfigSync } from '@/hooks/useConfigSync';
 import { useDiffReviewBridge } from '@/hooks/useDiffReviewBridge';
 import { EditorTabRow } from '@/components/editor/EditorTabRow';
-import { isBinaryFile } from '@/lib/binary-extensions';
+import { isBinaryFile } from '@/lib/view-registry';
 import { LogoSpinner } from '@/components/ui/LogoSpinner';
 import type { CoordinatorClient } from '@/lib/coordinator-client';
 import { loadGlobalExtensions, unloadExternalExtensions } from '@/lib/extension-loader';
@@ -160,7 +160,7 @@ export default function Home() {
           useDictationStore.getState().setClient(shared);
         }
       } catch (err) {
-        console.error('[Page] Failed to connect to coordinator:', err);
+        console.error('[Home] Failed to connect to coordinator:', err);
       }
     }
 
@@ -198,7 +198,7 @@ export default function Home() {
     }
 
     connectChat(directory).catch((err) => {
-      console.error('[Page] Failed to connect to OpenCode:', err);
+      console.error('[Home] Failed to connect to OpenCode:', err);
     });
 
     return () => {
@@ -280,7 +280,7 @@ export default function Home() {
       fetchFileTree();
       openFile(name, '');
     } catch (err) {
-      console.error('[Page] Failed to create new note:', err);
+      console.error('[Home] Failed to create new note:', err);
     }
   }, [client, openFile, fetchFileTree, filePaths]);
 
@@ -422,7 +422,7 @@ export default function Home() {
       const { content } = await client.readFile(filePath);
       openFile(filePath, content);
     } catch (err) {
-      console.error('[Page] Failed to navigate to file:', err);
+      console.error('[Home] Failed to navigate to file:', err);
     }
   }, [client, openFile]);
 
@@ -436,7 +436,7 @@ export default function Home() {
       fetchFileTree();
       openFile(filePath, '');
     } catch (err) {
-      console.error('[Page] Failed to create file:', err);
+      console.error('[Home] Failed to create file:', err);
     }
   }, [client, openFile, fetchFileTree]);
 

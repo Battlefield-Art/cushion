@@ -36,19 +36,11 @@ function registerDiscovered(
       console.warn(`[Extensions] Skipping ${dirName}: no main entry point`);
       continue;
     }
-    const allExts: string[] = [];
-    let binary = false;
-    for (const ft of manifest.fileTypes) {
-      allExts.push(...ft.extensions);
-      if (ft.binary) binary = true;
-    }
-
     registerExternalExtensionView(manifest.id, {
       displayName: manifest.name,
       component: createLazyExtension(client, dirName),
-      extensions: allExts,
-      icon: manifest.icon,
-      binary,
+      extensions: manifest.fileTypes.flatMap((ft) => ft.extensions),
+      binary: manifest.fileTypes.some((ft) => ft.binary),
     });
   }
 }

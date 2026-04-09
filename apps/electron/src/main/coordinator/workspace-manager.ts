@@ -48,10 +48,6 @@ export class WorkspaceManager {
   );
   private gitignoreStack: Array<{ basePath: string; ig: Ignore }> = [];
 
-  getProjectPath(): string | null {
-    return this.currentWorkspace?.projectPath ?? null;
-  }
-
   setFileFilter(respectGitignore: boolean, extensions: string[]) {
     this.respectGitignore = respectGitignore;
     this.allowedExtensions = new Set(extensions.map((e) => e.toLowerCase()));

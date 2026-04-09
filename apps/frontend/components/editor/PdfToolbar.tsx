@@ -71,7 +71,6 @@ export function PdfToolbar({
   dispatchParam,
   shortcutLabels,
 }: PdfToolbarProps) {
-  // Toolbar param state
   const [freetextColor, setFreetextColor] = useState(DEFAULT_FREETEXT_COLOR);
   const [freetextSize, setFreetextSize] = useState(14);
   const [inkColor, setInkColor] = useState(DEFAULT_INK_COLOR);
@@ -81,7 +80,6 @@ export function PdfToolbar({
 
   return (
     <div className="flex items-center gap-1 px-2 bg-tab-container border-b border-border text-sm select-none min-w-0 h-9 flex-shrink-0">
-      {/* Search button */}
       <button
         className={cn("p-1.5 rounded transition-colors", showSearch ? "bg-[var(--interactive-hover)] text-foreground" : "hover:bg-[var(--background-modifier-hover)] text-foreground-muted")}
         onClick={onToggleSearch}
@@ -92,7 +90,6 @@ export function PdfToolbar({
 
       <div className="w-px h-5 bg-border mx-0.5" />
 
-      {/* Annotation tools */}
       <button
         className={cn(
           "p-1.5 rounded transition-colors",
@@ -260,7 +257,6 @@ export function PdfToolbar({
         <ImageIcon size={18} />
       </button>
 
-      {/* Center: Page navigation */}
       <div className="flex-1 flex items-center justify-center gap-0.5">
         <button
           className="p-1.5 rounded hover:bg-[var(--background-modifier-hover)] text-foreground-muted transition-colors disabled:opacity-40"
@@ -294,7 +290,6 @@ export function PdfToolbar({
         </div>
       </div>
 
-      {/* Right: Zoom + Actions */}
       <div className="flex items-center gap-0.5">
         <button
           className="p-1.5 rounded hover:bg-[var(--background-modifier-hover)] text-foreground-muted transition-colors"

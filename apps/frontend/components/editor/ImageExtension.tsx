@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatShortcutList, useShortcutBindings, useShortcutHandler } from '@/lib/shortcuts';
@@ -34,10 +34,9 @@ export function ImageExtension({ ctx }: { ctx: ExtensionContext }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageShortcuts = useShortcutBindings(IMAGE_SHORTCUT_IDS);
 
-  const mimeType = useMemo(() => getMimeType(ctx.filePath), [ctx.filePath]);
-  const fileName = useMemo(() => ctx.filePath.split(/[/\\]/).pop() || ctx.filePath, [ctx.filePath]);
+  const mimeType = getMimeType(ctx.filePath);
+  const fileName = ctx.filePath.split(/[/\\]/).pop() || ctx.filePath;
 
-  // Load image on mount
   useEffect(() => {
     let cancelled = false;
     ctx.file.read().then((data) => {
@@ -48,7 +47,6 @@ export function ImageExtension({ ctx }: { ctx: ExtensionContext }) {
     return () => { cancelled = true; };
   }, [ctx.file]);
 
-  // Reload on external change
   useEffect(() => {
     return ctx.file.onExternalChange((content) => {
       if (content === null) {
@@ -61,7 +59,6 @@ export function ImageExtension({ ctx }: { ctx: ExtensionContext }) {
   const zoomOut = useCallback(() => setScale(s => Math.max(s / 1.25, 0.1)), []);
   const resetView = useCallback(() => { setScale(1); setPosition({ x: 0, y: 0 }); }, []);
 
-  // Ctrl+Scroll zoom
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -75,12 +72,11 @@ export function ImageExtension({ ctx }: { ctx: ExtensionContext }) {
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
-  // Keyboard shortcuts — only active when this tab is visible
-  const imageHandlers = useMemo(() => ({
-    'image.zoom.in': () => { zoomIn(); },
-    'image.zoom.out': () => { zoomOut(); },
-    'image.reset': () => { resetView(); },
-  } as const), [zoomIn, zoomOut, resetView]);
+  const imageHandlers = {
+    'image.zoom.in': zoomIn,
+    'image.zoom.out': zoomOut,
+    'image.reset': resetView,
+  } as const;
 
   useShortcutHandler({ handlers: imageHandlers, enabled: ctx.isActive });
 

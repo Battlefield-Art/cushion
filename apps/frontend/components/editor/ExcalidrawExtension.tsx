@@ -115,7 +115,6 @@ function ExcalidrawCanvas({ ctx, initialData }: ExcalidrawCanvasProps) {
     }, null, 2);
   }, []);
 
-  // Watch for external changes
   useEffect(() => {
     return ctx.file.onExternalChange((content) => {
       if (!content?.trim()) return;
@@ -127,9 +126,7 @@ function ExcalidrawCanvas({ ctx, initialData }: ExcalidrawCanvasProps) {
           elementsRef.current = parsed.elements ?? [];
           filesRef.current = parsed.files ?? {};
         }
-      } catch {
-        // Invalid JSON — ignore
-      }
+      } catch {}
     });
   }, [ctx.file]);
 

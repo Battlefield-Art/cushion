@@ -12,13 +12,9 @@
       "default": "./src/index.ts"
     }
   },
-  "files": [
-    "src"
-  ],
-  "scripts": {
+"scripts": {
     "build": "tsc -b",
     "type-check": "tsc -b",
-    "typecheck": "tsc -b",
     "lint": "tsc --noEmit"
   }
 }

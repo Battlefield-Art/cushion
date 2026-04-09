@@ -16,7 +16,7 @@ import { NoteEmbedWidget } from './widgets/note-embed-widget';
 import { UnsupportedEmbedWidget } from './widgets/unsupported-embed-widget';
 import { classifyEmbed, embedSourceRevealEffect, type EmbedType } from './embed-utils';
 import { MathWidget } from './widgets/math-widget';
-import { filePathsField } from './wiki-link-plugin';
+import { filePathsField, setFilePathsEffect } from './wiki-link-plugin';
 import { resolveWikiLink } from '../wiki-link-resolver';
 
 function getChildRanges(node: { node: { cursor: () => { iterate: (cb: (node: { type: { name: string }; from: number; to: number }) => void) => void } } }) {
@@ -654,7 +654,7 @@ export const widgetDecorationsField = StateField.define<DecorationSet>({
     return buildWidgetDecorations(state);
   },
   update(value, tr) {
-    if (tr.effects.some(e => e.is(embedSourceRevealEffect) || (e.is(mouseSelectEffect) && !e.value))) {
+    if (tr.effects.some(e => e.is(embedSourceRevealEffect) || (e.is(mouseSelectEffect) && !e.value) || e.is(setFilePathsEffect))) {
       return buildWidgetDecorations(tr.state);
     }
     const treeChanged = syntaxTree(tr.state) !== syntaxTree(tr.startState);
