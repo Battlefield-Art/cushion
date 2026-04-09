@@ -129,6 +129,18 @@ export class CoordinatorClient {
     return this.call('config/write', { file, content });
   }
 
+  discoverGlobalExtensions() {
+    return this.call('extensions/discover-global');
+  }
+
+  readExtensionSource(dirName: string) {
+    return this.call('extensions/read-source', { dirName });
+  }
+
+  readExtensionIcon(dirName: string) {
+    return this.call('extensions/read-icon', { dirName });
+  }
+
   onFilesChanged(callback: (changes: import('@cushion/types').FileChange[]) => void): () => void {
     this.filesChangedCallbacks.push(callback);
     return () => {

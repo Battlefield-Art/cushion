@@ -4,6 +4,16 @@ import type {
   PandocBinaryStatus,
   PandocFormat,
 } from './index.js';
+import type { ExtensionManifest } from '@cushion/extension-api';
+
+export interface DiscoveredExtension {
+  manifest: ExtensionManifest;
+  dirName: string;
+}
+
+export interface ExtensionsConfig {
+  disabled?: string[];
+}
 
 export interface TrashItem {
   id: string;
@@ -324,6 +334,20 @@ export interface RPCMethodMap {
   'pandoc/export': {
     params: { markdown: string; title: string; format: PandocFormat; workspacePath: string };
     result: { success: boolean; path: string | null };
+  };
+
+  // Extensions
+  'extensions/discover-global': {
+    params: void;
+    result: { extensions: DiscoveredExtension[] };
+  };
+  'extensions/read-source': {
+    params: { dirName: string };
+    result: { source: string };
+  };
+  'extensions/read-icon': {
+    params: { dirName: string };
+    result: { svg: string | null };
   };
 }
 

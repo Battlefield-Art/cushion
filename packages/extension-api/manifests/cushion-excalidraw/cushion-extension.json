@@ -1,0 +1,9 @@
+{
+  "id": "cushion.excalidraw",
+  "name": "Excalidraw",
+  "version": "0.1.0",
+  "description": "Edit Excalidraw drawings",
+  "fileTypes": [
+    { "extensions": ["excalidraw"] }
+  ]
+}

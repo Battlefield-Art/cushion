@@ -34,6 +34,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.40.0",
+    "@cushion/extension-api": "workspace:*",
     "@cushion/types": "workspace:*",
     "@excalidraw/excalidraw": "^0.18.0",
     "@lezer/common": "^1.2.3",

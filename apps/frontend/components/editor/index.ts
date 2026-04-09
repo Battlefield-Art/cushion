@@ -1,4 +1,4 @@
 export { CodeEditor } from './CodeEditor';
 export { EditorTabs } from './EditorTabs';
-export { PdfViewerNative } from './PdfViewerNative';
+export { PdfExtension } from './PdfExtension';
 export { FileHeader } from './FileHeader';

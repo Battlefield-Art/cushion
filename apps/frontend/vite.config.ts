@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      '@extensions': path.resolve(__dirname, '../../packages/extension-api/manifests'),
     },
   },
   optimizeDeps: {

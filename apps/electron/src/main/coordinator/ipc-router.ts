@@ -61,6 +61,12 @@ import {
 } from './handlers/ollama';
 
 import {
+  handleDiscoverGlobal,
+  handleReadSource,
+  handleReadIcon,
+} from './handlers/extensions';
+
+import {
   handleDictationListModels,
   handleDictationDownloadModel,
   handleDictationCancelDownload,
@@ -415,6 +421,19 @@ export async function initCoordinator(mainWindow: BrowserWindow) {
 
   ipcMain.handle('coordinator:pandoc/export', async (_event, params: RPCParams<'pandoc/export'>) => {
     return handlePandocExport(pandocBinaryManager, params, mainWindow);
+  });
+
+  // Extension handlers
+  ipcMain.handle('coordinator:extensions/discover-global', async () => {
+    return handleDiscoverGlobal();
+  });
+
+  ipcMain.handle('coordinator:extensions/read-source', async (_event, params: RPCParams<'extensions/read-source'>) => {
+    return handleReadSource(params);
+  });
+
+  ipcMain.handle('coordinator:extensions/read-icon', async (_event, params: RPCParams<'extensions/read-icon'>) => {
+    return handleReadIcon(params);
   });
 }
 

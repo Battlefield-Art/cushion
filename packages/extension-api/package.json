@@ -1,9 +1,9 @@
 {
-  "name": "@cushion/types",
+  "name": "@cushion/extension-api",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Shared type definitions for Cushion workspace, file, terminal, and document tracking",
+  "description": "Extension API types and validation for Cushion extensions",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -15,9 +15,6 @@
   "files": [
     "src"
   ],
-  "dependencies": {
-    "@cushion/extension-api": "workspace:*"
-  },
   "scripts": {
     "build": "tsc -b",
     "type-check": "tsc -b",

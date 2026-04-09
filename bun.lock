@@ -14,6 +14,7 @@
       "name": "electron-app",
       "version": "0.1.1",
       "dependencies": {
+        "@cushion/extension-api": "workspace:*",
         "@cushion/types": "workspace:*",
         "chokidar": "^5.0.0",
         "ignore": "^7.0.5",
@@ -58,6 +59,7 @@
         "@codemirror/state": "^6.6.0",
         "@codemirror/theme-one-dark": "^6.1.2",
         "@codemirror/view": "^6.40.0",
+        "@cushion/extension-api": "workspace:*",
         "@cushion/types": "workspace:*",
         "@excalidraw/excalidraw": "^0.18.0",
         "@lezer/common": "^1.2.3",
@@ -137,6 +139,10 @@
         "vite": "^6.3.5",
       },
     },
+    "packages/extension-api": {
+      "name": "@cushion/extension-api",
+      "version": "0.1.0",
+    },
     "packages/tsconfig": {
       "name": "@cushion/tsconfig",
       "version": "0.1.0",
@@ -144,6 +150,9 @@
     "packages/types": {
       "name": "@cushion/types",
       "version": "0.1.0",
+      "dependencies": {
+        "@cushion/extension-api": "workspace:*",
+      },
     },
   },
   "overrides": {
@@ -293,6 +302,8 @@
     "@csstools/css-syntax-patches-for-csstree": ["@csstools/css-syntax-patches-for-csstree@1.1.2", "", { "peerDependencies": { "css-tree": "^3.2.1" }, "optionalPeers": ["css-tree"] }, "sha512-5GkLzz4prTIpoyeUiIu3iV6CSG3Plo7xRVOFPKI7FVEJ3mZ0A8SwK0XU3Gl7xAkiQ+mDyam+NNp875/C5y+jSA=="],
 
     "@csstools/css-tokenizer": ["@csstools/css-tokenizer@4.0.0", "", {}, "sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA=="],
+
+    "@cushion/extension-api": ["@cushion/extension-api@workspace:packages/extension-api"],
 
     "@cushion/tsconfig": ["@cushion/tsconfig@workspace:packages/tsconfig"],
 

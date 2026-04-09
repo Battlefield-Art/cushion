@@ -8,6 +8,7 @@ notes/
 
 # AI tools
 .claude/
+.cushion/
 
 # Build outputs
 dist/

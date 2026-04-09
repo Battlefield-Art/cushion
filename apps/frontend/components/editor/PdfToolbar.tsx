@@ -80,7 +80,7 @@ export function PdfToolbar({
   const [highlightColor, setHighlightColor] = useState(DEFAULT_HIGHLIGHT_COLOR);
 
   return (
-    <div className="flex items-center gap-1 px-2 py-1 bg-tab-container border-b border-border text-sm select-none">
+    <div className="flex items-center gap-1 px-2 bg-tab-container border-b border-border text-sm select-none min-w-0 h-9 flex-shrink-0">
       {/* Search button */}
       <button
         className={cn("p-1.5 rounded transition-colors", showSearch ? "bg-[var(--interactive-hover)] text-foreground" : "hover:bg-[var(--background-modifier-hover)] text-foreground-muted")}
@@ -106,44 +106,146 @@ export function PdfToolbar({
         <MousePointer size={18} />
       </button>
 
-      <button
-        className={cn(
-          "p-1.5 rounded transition-colors",
-          editorMode === "freetext"
-            ? "bg-accent text-white"
-            : "hover:bg-[var(--background-modifier-hover)] text-foreground-muted"
+      <div className="relative">
+        <button
+          className={cn(
+            "p-1.5 rounded transition-colors",
+            editorMode === "freetext"
+              ? "bg-accent text-white"
+              : "hover:bg-[var(--background-modifier-hover)] text-foreground-muted"
+          )}
+          onClick={() => setEditorMode(editorMode === 'freetext' ? 'none' : 'freetext')}
+          title="Add text annotation"
+        >
+          <Type size={18} />
+        </button>
+        {editorMode === 'freetext' && (
+          <div className="absolute top-full left-0 mt-1 z-50 flex items-center gap-2 px-2 py-1.5 rounded-md border border-border bg-tab-container shadow-lg whitespace-nowrap">
+            <input
+              type="color"
+              value={freetextColor}
+              onChange={(e) => {
+                setFreetextColor(e.target.value);
+                dispatchParam(AnnotationEditorParamsType.FREETEXT_COLOR, e.target.value);
+              }}
+              className="w-5 h-5 rounded cursor-pointer border border-border bg-transparent"
+              title="Text color"
+            />
+            <input
+              type="range"
+              min={5}
+              max={100}
+              step={1}
+              value={freetextSize}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setFreetextSize(v);
+                dispatchParam(AnnotationEditorParamsType.FREETEXT_SIZE, v);
+              }}
+              className="w-20 accent-accent"
+              title={`Font size: ${freetextSize}px`}
+            />
+            <span className="text-foreground-faint text-xs">{freetextSize}px</span>
+          </div>
         )}
-        onClick={() => setEditorMode(editorMode === 'freetext' ? 'none' : 'freetext')}
-        title="Add text annotation"
-      >
-        <Type size={18} />
-      </button>
+      </div>
 
-      <button
-        className={cn(
-          "p-1.5 rounded transition-colors",
-          editorMode === "ink"
-            ? "bg-accent text-white"
-            : "hover:bg-[var(--background-modifier-hover)] text-foreground-muted"
+      <div className="relative">
+        <button
+          className={cn(
+            "p-1.5 rounded transition-colors",
+            editorMode === "ink"
+              ? "bg-accent text-white"
+              : "hover:bg-[var(--background-modifier-hover)] text-foreground-muted"
+          )}
+          onClick={() => setEditorMode(editorMode === 'ink' ? 'none' : 'ink')}
+          title="Draw / Ink annotation"
+        >
+          <Pencil size={18} />
+        </button>
+        {editorMode === 'ink' && (
+          <div className="absolute top-full left-0 mt-1 z-50 flex items-center gap-2 px-2 py-1.5 rounded-md border border-border bg-tab-container shadow-lg whitespace-nowrap">
+            <input
+              type="color"
+              value={inkColor}
+              onChange={(e) => {
+                setInkColor(e.target.value);
+                dispatchParam(AnnotationEditorParamsType.INK_COLOR, e.target.value);
+              }}
+              className="w-5 h-5 rounded cursor-pointer border border-border bg-transparent"
+              title="Ink color"
+            />
+            <label className="text-foreground-faint text-xs">Size</label>
+            <input
+              type="range"
+              min={1}
+              max={20}
+              step={1}
+              value={inkThickness}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setInkThickness(v);
+                dispatchParam(AnnotationEditorParamsType.INK_THICKNESS, v);
+              }}
+              className="w-16 accent-accent"
+              title={`Thickness: ${inkThickness}px`}
+            />
+            <span className="text-foreground-faint text-xs w-4">{inkThickness}</span>
+            <label className="text-foreground-faint text-xs ml-1">Opacity</label>
+            <input
+              type="range"
+              min={0.05}
+              max={1}
+              step={0.05}
+              value={inkOpacity}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setInkOpacity(v);
+                dispatchParam(AnnotationEditorParamsType.INK_OPACITY, v);
+              }}
+              className="w-16 accent-accent"
+              title={`Opacity: ${Math.round(inkOpacity * 100)}%`}
+            />
+            <span className="text-foreground-faint text-xs w-7">{Math.round(inkOpacity * 100)}%</span>
+          </div>
         )}
-        onClick={() => setEditorMode(editorMode === 'ink' ? 'none' : 'ink')}
-        title="Draw / Ink annotation"
-      >
-        <Pencil size={18} />
-      </button>
+      </div>
 
-      <button
-        className={cn(
-          "p-1.5 rounded transition-colors",
-          editorMode === "highlight"
-            ? "bg-accent text-white"
-            : "hover:bg-[var(--background-modifier-hover)] text-foreground-muted"
+      <div className="relative">
+        <button
+          className={cn(
+            "p-1.5 rounded transition-colors",
+            editorMode === "highlight"
+              ? "bg-accent text-white"
+              : "hover:bg-[var(--background-modifier-hover)] text-foreground-muted"
+          )}
+          onClick={() => setEditorMode(editorMode === 'highlight' ? 'none' : 'highlight')}
+          title="Highlight text"
+        >
+          <Highlighter size={18} />
+        </button>
+        {editorMode === 'highlight' && (
+          <div className="absolute top-full left-0 mt-1 z-50 flex items-center gap-1 px-2 py-1.5 rounded-md border border-border bg-tab-container shadow-lg">
+            {HIGHLIGHT_COLORS.map((c) => (
+              <button
+                key={c.hex}
+                className={cn(
+                  "w-5 h-5 rounded-full border-2 transition-colors",
+                  highlightColor.toUpperCase() === c.hex
+                    ? "border-white scale-110"
+                    : "border-transparent hover:border-foreground-muted"
+                )}
+                style={{ backgroundColor: c.hex }}
+                onClick={() => {
+                  setHighlightColor(c.hex);
+                  dispatchParam(AnnotationEditorParamsType.HIGHLIGHT_COLOR, c.hex);
+                }}
+                title={c.name}
+              />
+            ))}
+          </div>
         )}
-        onClick={() => setEditorMode(editorMode === 'highlight' ? 'none' : 'highlight')}
-        title="Highlight text"
-      >
-        <Highlighter size={18} />
-      </button>
+      </div>
 
       <button
         className={cn(
@@ -157,106 +259,6 @@ export function PdfToolbar({
       >
         <ImageIcon size={18} />
       </button>
-
-      {/* Tool-specific params inline */}
-      {editorMode === 'freetext' && (
-        <div className="flex items-center gap-2 ml-1">
-          <input
-            type="color"
-            value={freetextColor}
-            onChange={(e) => {
-              setFreetextColor(e.target.value);
-              dispatchParam(AnnotationEditorParamsType.FREETEXT_COLOR, e.target.value);
-            }}
-            className="w-6 h-6 rounded cursor-pointer border border-border bg-transparent"
-            title="Text color"
-          />
-          <input
-            type="range"
-            min={5}
-            max={100}
-            step={1}
-            value={freetextSize}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setFreetextSize(v);
-              dispatchParam(AnnotationEditorParamsType.FREETEXT_SIZE, v);
-            }}
-            className="w-20 accent-accent"
-            title={`Font size: ${freetextSize}px`}
-          />
-          <span className="text-foreground-faint text-xs w-6">{freetextSize}</span>
-        </div>
-      )}
-
-      {editorMode === 'ink' && (
-        <div className="flex items-center gap-2 ml-1">
-          <input
-            type="color"
-            value={inkColor}
-            onChange={(e) => {
-              setInkColor(e.target.value);
-              dispatchParam(AnnotationEditorParamsType.INK_COLOR, e.target.value);
-            }}
-            className="w-6 h-6 rounded cursor-pointer border border-border bg-transparent"
-            title="Ink color"
-          />
-          <label className="text-foreground-faint text-xs">Size</label>
-          <input
-            type="range"
-            min={1}
-            max={20}
-            step={1}
-            value={inkThickness}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setInkThickness(v);
-              dispatchParam(AnnotationEditorParamsType.INK_THICKNESS, v);
-            }}
-            className="w-16 accent-accent"
-            title={`Thickness: ${inkThickness}px`}
-          />
-          <span className="text-foreground-faint text-xs w-4">{inkThickness}</span>
-          <label className="text-foreground-faint text-xs ml-1">Opacity</label>
-          <input
-            type="range"
-            min={0.05}
-            max={1}
-            step={0.05}
-            value={inkOpacity}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setInkOpacity(v);
-              dispatchParam(AnnotationEditorParamsType.INK_OPACITY, v);
-            }}
-            className="w-16 accent-accent"
-            title={`Opacity: ${Math.round(inkOpacity * 100)}%`}
-          />
-          <span className="text-foreground-faint text-xs w-7">{Math.round(inkOpacity * 100)}%</span>
-        </div>
-      )}
-
-      {editorMode === 'highlight' && (
-        <div className="flex items-center gap-1 ml-1">
-          {HIGHLIGHT_COLORS.map((c) => (
-            <button
-              key={c.hex}
-              className={cn(
-                "w-6 h-6 rounded-full border-2 transition-colors",
-                highlightColor.toUpperCase() === c.hex
-                  ? "border-white scale-110"
-                  : "border-transparent hover:border-foreground-muted"
-              )}
-              style={{ backgroundColor: c.hex }}
-              onClick={() => {
-                setHighlightColor(c.hex);
-                dispatchParam(AnnotationEditorParamsType.HIGHLIGHT_COLOR, c.hex);
-              }}
-              title={c.name}
-            />
-          ))}
-        </div>
-      )}
 
       {/* Center: Page navigation */}
       <div className="flex-1 flex items-center justify-center gap-0.5">
@@ -427,7 +429,7 @@ export function PdfSearchBar({
   const showMatchesCount = searchQuery.length > 0 || searchMatchesCount.total > 0;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-[var(--background-secondary-alt)] border-b border-border">
+    <div className="flex items-center gap-2 px-3 bg-[var(--background-secondary-alt)] border-b border-border h-9 flex-shrink-0 overflow-x-auto min-w-0 thin-scrollbar">
       <Search size={16} className="text-foreground-faint" />
       <input
         ref={searchInputRef}
@@ -510,7 +512,7 @@ export function PdfSearchBar({
       </button>
 
       {searchStatusMessage && (
-        <span className="basis-full text-xs text-foreground-faint pl-6">{searchStatusMessage}</span>
+        <span className="text-xs text-foreground-faint whitespace-nowrap">{searchStatusMessage}</span>
       )}
     </div>
   );

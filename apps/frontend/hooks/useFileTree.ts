@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useDiffReviewStore } from '@/stores/diffReviewStore';
-import { BINARY_FILE_EXTENSIONS } from '@/lib/binary-extensions';
+import { isBinaryFile } from '@/lib/binary-extensions';
 import type { CoordinatorClient } from '@/lib/coordinator-client';
 import type { WorkspaceMetadata } from '@cushion/types';
 
@@ -111,7 +111,7 @@ export function useFileTree({
       if (diffState.reviewingFilePath === filePath) return;
       if (diffState.fileSnapshots[filePath]) return;
 
-      if (BINARY_FILE_EXTENSIONS.test(filePath)) return;
+      if (isBinaryFile(filePath)) return;
 
       const state = useWorkspaceStore.getState();
       const openFile = state.openFiles.get(filePath);

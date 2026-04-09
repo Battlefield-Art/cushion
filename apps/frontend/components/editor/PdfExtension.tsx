@@ -5,7 +5,6 @@ import { formatShortcutList, useShortcutBindings, useShortcutHandler } from '@/l
 import {
   PDF_SHORTCUT_IDS,
   AnnotationEditorType,
-  AnnotationEditorParamsType,
   HIGHLIGHT_COLORS,
   type EditorMode,
 } from './pdf-constants';
@@ -21,8 +20,7 @@ import {
 } from '@/lib/pdf-telemetry';
 import { base64ToUint8Array, uint8ArrayToBase64, downloadPdf, printPdf } from '@/lib/pdf-bytes';
 import { isPdfProgressiveLoadingEnabled } from '@/lib/pdf-feature-flags';
-import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
-import type { ViewProps } from '@/lib/view-registry';
+import type { ExtensionContext } from '@cushion/extension-api';
 
 interface PdfBase64Chunk {
   base64: string;
@@ -170,7 +168,7 @@ function createCoordinatorRangeTransport(
       } catch (error) {
         if (!aborted) {
           const normalizedError = normalizeError(error, 'Failed to read PDF chunk');
-          console.error('[PdfViewerNative] Failed to read PDF chunk:', normalizedError);
+          console.error('[PdfExtension] Failed to read PDF chunk:', normalizedError);
           reportFatalError(normalizedError);
         }
       } finally {
@@ -189,54 +187,53 @@ function createCoordinatorRangeTransport(
   return transport;
 }
 
-/**
- * Self-contained PDF viewer — loads its own data, handles saving.
- * Registered in the view registry for `.pdf` files.
- */
-export function PdfViewerNative({ filePath }: ViewProps) {
+export function PdfExtension({ ctx }: { ctx: ExtensionContext }) {
   const [pdfState, setPdfState] = useState<{
     base64Data?: string;
     telemetrySession: PdfTelemetrySession | null;
     progressiveLoading: PdfProgressiveLoadingConfig | null;
   } | null>(null);
 
+  const fileApi = ctx.file;
+  const filePath = ctx.filePath;
+
   useEffect(() => {
     let cancelled = false;
 
-    getSharedCoordinatorClient().then(async (client) => {
-      if (cancelled) return;
+    (async () => {
+      try {
+        if (pdfProgressiveLoadingEnabled) {
+          const readChunk = (offset: number, length: number) =>
+            fileApi.readChunk(offset, length);
+          setPdfState({
+            telemetrySession: null,
+            progressiveLoading: { readChunk, rangeChunkSize: DEFAULT_PDF_RANGE_CHUNK_SIZE },
+          });
+          return;
+        }
 
-      if (pdfProgressiveLoadingEnabled) {
-        const readChunk = (offset: number, length: number) =>
-          client.readFileBase64Chunk(filePath, offset, length);
-        setPdfState({
-          telemetrySession: null,
-          progressiveLoading: { readChunk, rangeChunkSize: DEFAULT_PDF_RANGE_CHUNK_SIZE },
+        const readStartedAtMs = pdfTelemetryNow();
+        const base64 = await fileApi.read();
+        if (cancelled) return;
+
+        const session = createPdfTelemetrySession({
+          filePath,
+          base64Data: base64,
+          fileReadDurationMs: pdfTelemetryNow() - readStartedAtMs,
         });
-        return;
+
+        setPdfState({
+          base64Data: base64,
+          telemetrySession: session,
+          progressiveLoading: null,
+        });
+      } catch (err) {
+        console.error('[PdfExtension] Failed to load PDF:', err);
       }
-
-      const readStartedAtMs = pdfTelemetryNow();
-      const result = await client.readFileBase64(filePath);
-      if (cancelled) return;
-
-      const session = createPdfTelemetrySession({
-        filePath,
-        base64Data: result.base64,
-        fileReadDurationMs: pdfTelemetryNow() - readStartedAtMs,
-      });
-
-      setPdfState({
-        base64Data: result.base64,
-        telemetrySession: session,
-        progressiveLoading: null,
-      });
-    }).catch((err) => {
-      console.error('[PdfViewerNative] Failed to load PDF:', err);
-    });
+    })();
 
     return () => { cancelled = true; };
-  }, [filePath]);
+  }, [filePath, fileApi]);
 
   if (!pdfState) {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Loading PDF…</div>;
@@ -244,7 +241,7 @@ export function PdfViewerNative({ filePath }: ViewProps) {
 
   return (
     <PdfViewerInner
-      filePath={filePath}
+      ctx={ctx}
       base64Data={pdfState.base64Data}
       telemetrySession={pdfState.telemetrySession}
       progressiveLoading={pdfState.progressiveLoading}
@@ -253,18 +250,19 @@ export function PdfViewerNative({ filePath }: ViewProps) {
 }
 
 interface PdfViewerInnerProps {
-  filePath: string;
+  ctx: ExtensionContext;
   base64Data?: string;
   telemetrySession?: PdfTelemetrySession | null;
   progressiveLoading?: PdfProgressiveLoadingConfig | null;
 }
 
 function PdfViewerInner({
-  filePath,
+  ctx,
   base64Data,
   telemetrySession,
   progressiveLoading,
 }: PdfViewerInnerProps) {
+  const filePath = ctx.filePath;
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
@@ -285,7 +283,6 @@ function PdfViewerInner({
   const pendingSavedBytesRef = useRef<Uint8Array | null>(null);
   const lastSavedBytesRef = useRef<Uint8Array | null>(null);
 
-  // Extracted hooks
   const {
     zoom,
     setZoom,
@@ -310,7 +307,6 @@ function PdfViewerInner({
     closeSearch,
   } = usePdfSearch(eventBusRef);
 
-  // Add image via file picker: enters stamp mode, then triggers keyboard add
   const handleAddImage = useCallback(() => {
     const viewer = pdfViewerRef.current;
     if (!viewer) return;
@@ -332,7 +328,6 @@ function PdfViewerInner({
     }, 100);
   }, []);
 
-  // Dispatch annotation editor param change
   const dispatchParam = useCallback((type: number, value: any) => {
     const eventBus = eventBusRef.current;
     if (!eventBus) return;
@@ -366,11 +361,9 @@ function PdfViewerInner({
       return base64ToUint8Array(base64Data);
     }
 
-    // For progressive mode, re-read from coordinator
-    const client = await getSharedCoordinatorClient();
-    const result = await client.readFileBase64(filePath);
-    return base64ToUint8Array(result.base64);
-  }, [base64Data, filePath]);
+    const result = await ctx.file.read();
+    return base64ToUint8Array(result);
+  }, [base64Data, ctx.file]);
 
   const annotatedFileName = filePath
     .split(/[/\\]/)
@@ -379,14 +372,14 @@ function PdfViewerInner({
 
   const persistPdfBytes = useCallback(async (data: Uint8Array) => {
     try {
-      const client = await getSharedCoordinatorClient();
       const base64 = uint8ArrayToBase64(data);
-      await client.saveFileBase64(filePath, base64);
+      ctx.file.updateBase64(base64);
+      await ctx.file.flush();
     } catch (err) {
-      console.error('[PdfViewerNative] PDF save failed:', err);
+      console.error('[PdfExtension] PDF save failed:', err);
       alert('Failed to save PDF: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
-  }, [filePath]);
+  }, [ctx.file]);
 
   useEffect(() => {
     const cssHref = `${import.meta.env.BASE_URL}pdfjs/pdf_viewer.css`;
@@ -603,7 +596,7 @@ function PdfViewerInner({
 
       } catch (err) {
         if (cancelled) return;
-        console.error('[PdfViewerNative] Load error:', err);
+        console.error('[PdfExtension] Load error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load PDF');
         setLoading(false);
       }
@@ -683,7 +676,7 @@ function PdfViewerInner({
     try {
       viewer.annotationEditorMode = { mode: modeMap[editorMode] };
     } catch (err) {
-      console.error('[PdfViewerNative] Failed to set editor mode:', err);
+      console.error('[PdfExtension] Failed to set editor mode:', err);
     }
   }, [editorMode]);
 
@@ -708,7 +701,7 @@ function PdfViewerInner({
       downloadPdf(originalBytes, fileName);
     } catch (err) {
       const normalizedError = normalizeError(err, 'Failed to download original PDF');
-      console.error('[PdfViewerNative] Download original failed:', normalizedError);
+      console.error('[PdfExtension] Download original failed:', normalizedError);
       alert('Failed to download original PDF: ' + normalizedError.message);
     }
   }, [fileName, readOriginalPdfBytes]);
@@ -726,7 +719,7 @@ function PdfViewerInner({
       downloadPdf(annotatedBytes, annotatedFileName);
     } catch (err) {
       const normalizedError = normalizeError(err, 'Failed to download annotated PDF');
-      console.error('[PdfViewerNative] Download annotated failed:', normalizedError);
+      console.error('[PdfExtension] Download annotated failed:', normalizedError);
       alert('Failed to download annotated PDF: ' + normalizedError.message);
     }
   }, [annotatedFileName, hasChanges, readOriginalPdfBytes]);
@@ -737,7 +730,7 @@ function PdfViewerInner({
       await printPdf(originalBytes);
     } catch (err) {
       const normalizedError = normalizeError(err, 'Failed to print PDF');
-      console.error('[PdfViewerNative] Print failed:', normalizedError);
+      console.error('[PdfExtension] Print failed:', normalizedError);
       alert('Failed to print PDF: ' + normalizedError.message);
     }
   }, [readOriginalPdfBytes]);
@@ -777,7 +770,7 @@ function PdfViewerInner({
       }
     } catch (err) {
       const normalizedError = normalizeError(err, 'Failed to save PDF');
-      console.error('[PdfViewerNative] Save failed:', normalizedError);
+      console.error('[PdfExtension] Save failed:', normalizedError);
       setSaveError(normalizedError.message);
     } finally {
       setSaving(false);
@@ -807,7 +800,7 @@ function PdfViewerInner({
     showSearch,
   ]);
 
-  useShortcutHandler({ handlers: pdfHandlers });
+  useShortcutHandler({ handlers: pdfHandlers, enabled: ctx.isActive });
 
   const searchShortcutLabel = formatShortcutList(pdfShortcuts['pdf.search.open']);
   const cancelShortcutLabel = formatShortcutList(pdfShortcuts['pdf.search.close']);
@@ -830,7 +823,7 @@ function PdfViewerInner({
   }
 
   return (
-    <div className="pdfjs-viewer-shell flex flex-col h-full bg-background">
+    <div className="pdfjs-viewer-shell flex flex-col h-full bg-background min-w-0">
       <PdfToolbar
         editorMode={editorMode}
         setEditorMode={setEditorMode}
@@ -901,7 +894,6 @@ function PdfViewerInner({
         />
       )}
 
-      {/* required by pdf.js */}
       <div className="flex-1 relative min-h-0">
         <div
           ref={containerRef}
@@ -933,4 +925,4 @@ function PdfViewerInner({
   );
 }
 
-export default PdfViewerNative;
+export default PdfExtension;

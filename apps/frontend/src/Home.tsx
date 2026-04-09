@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { registerBuiltinViews } from '@/lib/register-builtin-views';
-
-registerBuiltinViews();
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useChatStore } from '@/stores/chatStore';
 import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
@@ -27,9 +25,10 @@ import { useExplorerStore } from '@/stores/explorerStore';
 import { useConfigSync } from '@/hooks/useConfigSync';
 import { useDiffReviewBridge } from '@/hooks/useDiffReviewBridge';
 import { EditorTabRow } from '@/components/editor/EditorTabRow';
-import { BINARY_FILE_EXTENSIONS } from '@/lib/binary-extensions';
+import { isBinaryFile } from '@/lib/binary-extensions';
 import { LogoSpinner } from '@/components/ui/LogoSpinner';
 import type { CoordinatorClient } from '@/lib/coordinator-client';
+import { loadGlobalExtensions, unloadExternalExtensions } from '@/lib/extension-loader';
 
 const APP_SHORTCUT_IDS = [
   'app.quickSwitcher.open',
@@ -170,6 +169,26 @@ export default function Home() {
       cancelled = true;
     };
   }, [setClient]);
+
+  useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+
+    async function loadExtensions() {
+      unloadExternalExtensions();
+      let disabled: Set<string> | undefined;
+      try {
+        disabled = await loadGlobalExtensions(client!, !!metadata?.projectPath);
+      } catch (err) {
+        console.warn('[Home] Failed to load global extensions:', err);
+      }
+      if (cancelled) return;
+      registerBuiltinViews(disabled);
+    }
+
+    loadExtensions();
+    return () => { cancelled = true; };
+  }, [client, metadata?.projectPath]);
 
   useEffect(() => {
     const directory = metadata?.projectPath;
@@ -392,7 +411,7 @@ export default function Home() {
     if (!client) return;
 
     try {
-      if (BINARY_FILE_EXTENSIONS.test(filePath)) {
+      if (isBinaryFile(filePath)) {
         openFile(filePath, '');
         return;
       }

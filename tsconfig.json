@@ -16,7 +16,8 @@
   "references": [
     { "path": "apps/coordinator" },
     { "path": "apps/frontend" },
-    { "path": "packages/types" }
+    { "path": "packages/types" },
+    { "path": "packages/extension-api" }
   ],
   "exclude": ["node_modules"]
 }
