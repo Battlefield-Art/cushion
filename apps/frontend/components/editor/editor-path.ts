@@ -1,4 +1,5 @@
 export const isLinux = window.electronAPI.platform === 'linux';
+export const isWindows = window.electronAPI.platform === 'win32';
 export const hasCustomTitlebar = !isLinux;
 export const needsCustomWindowControls = false;
 export const noDragStyle = hasCustomTitlebar ? { WebkitAppRegion: 'no-drag' } as React.CSSProperties : undefined;

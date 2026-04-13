@@ -115,7 +115,7 @@ export function PaneTabBar({ paneId, tabs }: PaneTabBarProps) {
             )}
             <button
               className={cn(
-                "ml-auto w-4 h-4 flex items-center justify-center rounded shrink-0",
+                "relative z-10 ml-auto w-4 h-4 flex items-center justify-center rounded shrink-0",
                 "transition-opacity duration-150",
                 "hover:bg-[var(--background-modifier-hover)]",
                 isActive ? "opacity-60 hover:opacity-100" : "opacity-0 group-hover:opacity-60 group-hover:hover:opacity-100"
