@@ -1,10 +1,14 @@
 
 import { Minus, Square, X, PanelLeft, PanelRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { hasCustomTitlebar, needsCustomWindowControls, noDragStyle } from './editor-path';
+import { hasCustomTitlebar, isWindows, needsCustomWindowControls, noDragStyle } from './editor-path';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { PaneTabBar } from './PaneTabBar';
 import logoSvg from '/logo.svg?url';
+
+// Space reserved at the trailing edge for the panel toggle button + OS window controls.
+// Windows: titlebar overlay buttons (~138px) sit on the right; macOS/Linux: no right-side controls.
+const TRAILING_RESERVE = isWindows ? 176 : 44;
 
 interface EditorTabRowProps {
   sidebarOpen?: boolean;
@@ -82,7 +86,7 @@ export function EditorTabRow({
         )}
       </div>
 
-      <div className="min-w-0 flex-1 flex items-end">
+      <div className="min-w-0 flex-1 flex items-end overflow-hidden">
         {panes.map((pane, i) => (
           <div
             key={pane.id}
@@ -100,10 +104,12 @@ export function EditorTabRow({
           rightPanelOpen && 'border-l border-border'
         )}
         style={{
-          width: rightPanelWidth ?? 0,
-          marginRight: rightPanelOpen ? 0 : -(rightPanelWidth ?? 0),
+          width: Math.max(0, (rightPanelWidth ?? 0) - TRAILING_RESERVE),
+          marginRight: rightPanelOpen ? 0 : -Math.max(0, (rightPanelWidth ?? 0) - TRAILING_RESERVE),
         }}
       />
+
+      <div className="flex-shrink-0" style={{ width: TRAILING_RESERVE }} />
 
       {onToggleRightPanel && (
         <button
@@ -115,7 +121,7 @@ export function EditorTabRow({
             'hover:bg-muted/30',
             'transition-colors duration-150'
           )}
-          style={{ ...noDragStyle, right: rightPanelOpen ? (rightPanelWidth ?? 0) - 36 : 140 }}
+          style={{ ...noDragStyle, right: rightPanelOpen ? (rightPanelWidth ?? 0) - 36 : (isWindows ? 140 : 8) }}
           title={rightPanelOpen ? 'Close right sidebar' : 'Open right sidebar'}
           aria-label={rightPanelOpen ? 'Close right sidebar' : 'Open right sidebar'}
           aria-pressed={!!rightPanelOpen}
