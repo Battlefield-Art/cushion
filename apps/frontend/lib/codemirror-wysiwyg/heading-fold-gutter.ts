@@ -42,8 +42,12 @@ class HeadingFoldGutterView {
     icon.setAttribute('aria-hidden', 'true');
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', 'M6 4l4 4-4 4');
-    path.setAttribute('fill', 'currentColor');
+    path.setAttribute('d', 'M6 3l5 5-5 5');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-width', '1.5');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
 
     icon.appendChild(path);
     this.button.appendChild(icon);
@@ -205,7 +209,7 @@ class HeadingFoldGutterView {
     const top =
       lineRect.top - rootRect.top + paddingTop + (resolvedLineHeight - resolvedButtonSize) / 2;
     const left =
-      lineRect.left - rootRect.left - (resolvedGutterWidth - resolvedEdgeOffset);
+      lineRect.left - rootRect.left - resolvedButtonSize;
 
     this.container.style.top = `${top}px`;
     this.container.style.left = `${left}px`;
