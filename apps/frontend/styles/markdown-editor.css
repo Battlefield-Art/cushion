@@ -1255,7 +1255,7 @@
 /* Base foldable heading - positions chevron in left margin */
 .cm-editor.cm-markdown-wysiwyg .cm-line.cm-heading-foldable {
   position: relative;
-  --md-fold-chevron-size: 18px;
+  --md-fold-chevron-size: 14px;
   --md-fold-gutter-max: 30px;
   --md-fold-gutter-width: clamp(
     var(--md-fold-chevron-size),
@@ -1265,11 +1265,6 @@
   --md-fold-edge-offset: max(
     0px,
     calc(var(--md-fold-gutter-width) - var(--md-fold-chevron-size) - 2px)
-  );
-  --md-fold-chevron-size-actual: clamp(
-    0px,
-    calc(var(--md-fold-gutter-width) - 2px),
-    var(--md-fold-chevron-size)
   );
 }
 
