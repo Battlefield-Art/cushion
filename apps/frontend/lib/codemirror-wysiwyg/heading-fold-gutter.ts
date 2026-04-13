@@ -192,16 +192,8 @@ class HeadingFoldGutterView {
     const lineHeight = Number.parseFloat(lineStyle.lineHeight);
     const resolvedLineHeight = Number.isFinite(lineHeight) ? lineHeight : lineRect.height;
 
-    const gutterWidthValue = lineStyle.getPropertyValue('--md-fold-gutter-width').trim();
-    const edgeOffsetValue = lineStyle.getPropertyValue('--md-fold-edge-offset').trim();
     const buttonSizeValue = lineStyle.getPropertyValue('--md-fold-chevron-size').trim();
-
-    const gutterWidth = Number.parseFloat(gutterWidthValue);
-    const edgeOffset = Number.parseFloat(edgeOffsetValue);
     const buttonSize = Number.parseFloat(buttonSizeValue);
-
-    const resolvedGutterWidth = Number.isFinite(gutterWidth) ? gutterWidth : defaultGutterWidth;
-    const resolvedEdgeOffset = Number.isFinite(edgeOffset) ? edgeOffset : 0;
     const resolvedButtonSize = Number.isFinite(buttonSize) ? buttonSize : defaultButtonSize;
 
     const paddingTop = Number.parseFloat(lineStyle.paddingTop) || 0;
