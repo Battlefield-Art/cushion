@@ -2,8 +2,8 @@
 node_modules/
 
 # Reference implementations (cloned for research)
-# inspo/
-# docs/
+inspo/
+docs/
 notes/
 
 # AI tools

@@ -109,7 +109,7 @@ export type SnapshotId = string;
 export interface SnapshotManifest {
   version: 1;
   ts: number;
-  files: Record<string, { sha256: string; size: number; mode?: number } | { size: number; skipped: true }>;
+  files: Record<string, { sha256: string; size: number } | { size: number; skipped: true }>;
 }
 
 export interface TurnRecord {
@@ -118,11 +118,6 @@ export interface TurnRecord {
   messageID: string;
   ts: number;
   parentId: SnapshotId | null;
-}
-
-export interface SnapshotDiffEntry {
-  path: string;
-  status: 'added' | 'modified' | 'deleted';
 }
 
 export interface RPCMethodMap {
@@ -141,10 +136,6 @@ export interface RPCMethodMap {
   'snapshot/unrevert': {
     params: { sessionID: string };
     result: { success: boolean; restoredSnapshotId: SnapshotId | null };
-  };
-  'snapshot/diff': {
-    params: { snapshotId: SnapshotId };
-    result: { entries: SnapshotDiffEntry[] };
   };
   'snapshot/list': {
     params: { sessionID?: string };

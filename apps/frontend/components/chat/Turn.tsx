@@ -14,6 +14,7 @@ import { DiffSummary } from './DiffView';
 import { ToolPartView, AttachmentList, ContextToolGroup, CONTEXT_GROUP_TOOLS } from './ToolPartView';
 import { CopyButton } from './CopyButton';
 import { HighlightedText, ContextList } from './UserMessageContent';
+import { useToast } from './Toast';
 import { useThrottledValue } from '@/hooks/useThrottledValue';
 import { Ban, Undo2 } from 'lucide-react';
 import {
@@ -327,15 +328,19 @@ export function Turn({ turn, sessionId, isWorking, onInteract, showThinking = tr
 function RevertToTurnButton({ sessionId, messageId }: { sessionId: string; messageId: string }) {
   const revertToTurn = useChatStore((s) => s.revertToTurn);
   const isCurrent = useChatStore((s) => s.revertPointers[sessionId] === messageId);
+  const { showToast } = useToast();
   if (isCurrent) return null;
   return (
     <button
       type="button"
-      data-component="copy-button"
+      data-component="revert-button"
       onMouseDown={(event) => event.preventDefault()}
       onClick={(event) => {
         event.stopPropagation();
-        revertToTurn(messageId).catch(() => undefined);
+        revertToTurn(messageId).catch((error) => {
+          const message = error instanceof Error && error.message ? error.message : 'Revert failed.';
+          showToast({ variant: 'error', description: message });
+        });
       }}
       aria-label="Revert workspace to before this message"
       title="Revert workspace to before this message"

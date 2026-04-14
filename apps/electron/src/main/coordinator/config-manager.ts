@@ -23,11 +23,6 @@ export class ConfigManager {
     this.gitignoreCreated = false;
   }
 
-  clearWorkspacePath() {
-    this.workspacePath = null;
-    this.gitignoreCreated = false;
-  }
-
   async readConfig(filename: string): Promise<{ content: string | null; exists: boolean }> {
     this.ensureWorkspace();
     this.validateConfigFilename(filename);

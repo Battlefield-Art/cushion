@@ -15,7 +15,7 @@ export function getCompactLabel(label: string, maxLength = 3): string {
   const trimmed = label.trim();
   if (maxLength <= 0) return '';
   if (trimmed.length <= maxLength) return trimmed;
-  if (maxLength <= 1) return trimmed.charAt(0);
+  if (maxLength === 1) return trimmed.charAt(0);
   return `${trimmed.slice(0, maxLength)}...`;
 }
 
@@ -65,10 +65,6 @@ export function usePromptCompact({ shellMode, deps }: UsePromptCompactOptions) {
       setCompactLevel(next);
     }
   }, [shellMode]);
-
-  useEffect(() => {
-    levelRef.current = compactLevel;
-  }, [compactLevel]);
 
   useEffect(() => {
     if (shellMode) return;

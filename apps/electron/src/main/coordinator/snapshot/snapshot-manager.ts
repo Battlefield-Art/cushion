@@ -5,7 +5,6 @@ import type {
   SnapshotId,
   SnapshotManifest,
   TurnRecord,
-  SnapshotDiffEntry,
 } from '@cushion/types';
 import { writeFileAtomicWithRetry } from '../atomic-write';
 import { ContentStore } from './content-store';
@@ -41,14 +40,6 @@ export class SnapshotManager {
     this.manifestsDir = path.join(root, 'manifests');
     this.statePath = path.join(root, 'state.json');
     this.store = new ContentStore(path.join(root, 'blobs'));
-  }
-
-  clearWorkspacePath(): void {
-    this.workspacePath = null;
-    this.snapshotsDir = null;
-    this.manifestsDir = null;
-    this.statePath = null;
-    this.store = null;
   }
 
   private async ensureReady(): Promise<void> {
@@ -147,9 +138,7 @@ export class SnapshotManager {
         continue;
       }
       const sha = await this.store.hashFile(f.absPath);
-      if (!(await this.store.has(sha))) {
-        await this.store.writeBlobFromFile(sha, f.absPath);
-      }
+      await this.store.writeBlobFromFile(sha, f.absPath);
       manifestFiles[f.relPath] = { sha256: sha, size: f.size };
     }
 
@@ -249,33 +238,6 @@ export class SnapshotManager {
     updated.redoPointers[params.sessionID] = null;
     await this.writeState(updated);
     return { success: true, restoredSnapshotId: next };
-  }
-
-  async diff(snapshotId: SnapshotId): Promise<{ entries: SnapshotDiffEntry[] }> {
-    if (!this.workspacePath || !this.store) return { entries: [] };
-    const manifest = await this.readManifest(snapshotId);
-    if (!manifest) return { entries: [] };
-    const state = await this.readState();
-    const headManifest = state.head ? await this.readManifest(state.head) : null;
-    const entries: SnapshotDiffEntry[] = [];
-    const headFiles = headManifest?.files ?? {};
-
-    for (const [relPath, entry] of Object.entries(manifest.files)) {
-      const head = headFiles[relPath];
-      if (!head) {
-        entries.push({ path: relPath, status: 'added' });
-        continue;
-      }
-      const a = 'sha256' in entry ? entry.sha256 : null;
-      const b = 'sha256' in head ? head.sha256 : null;
-      if (a !== b) entries.push({ path: relPath, status: 'modified' });
-    }
-    for (const relPath of Object.keys(headFiles)) {
-      if (!(relPath in manifest.files)) {
-        entries.push({ path: relPath, status: 'deleted' });
-      }
-    }
-    return { entries };
   }
 
   async list(params: { sessionID?: string }): Promise<{

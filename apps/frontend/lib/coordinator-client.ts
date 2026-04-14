@@ -137,10 +137,6 @@ export class CoordinatorClient {
     return this.call('snapshot/unrevert', { sessionID });
   }
 
-  snapshotDiff(snapshotId: string) {
-    return this.call('snapshot/diff', { snapshotId });
-  }
-
   snapshotList(sessionID?: string) {
     return this.call('snapshot/list', { sessionID });
   }

@@ -22,13 +22,6 @@ export async function handleSnapshotUnrevert(
   return manager.unrevert(params);
 }
 
-export async function handleSnapshotDiff(
-  manager: SnapshotManager,
-  params: RPCParams<'snapshot/diff'>,
-): Promise<RPCResult<'snapshot/diff'>> {
-  return manager.diff(params.snapshotId);
-}
-
 export async function handleSnapshotList(
   manager: SnapshotManager,
   params: RPCParams<'snapshot/list'>,

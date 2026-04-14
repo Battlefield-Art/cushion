@@ -631,10 +631,11 @@ body {
 }
 
 /* ========================================
-   Chat Copy Buttons (OpenCode-style)
+   Chat Action Icon Buttons (OpenCode-style)
    ======================================== */
 
-[data-component="copy-button"] {
+[data-component="copy-button"],
+[data-component="revert-button"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -648,7 +649,8 @@ body {
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-[data-component="copy-button"]:hover {
+[data-component="copy-button"]:hover,
+[data-component="revert-button"]:hover {
   background: var(--surface);
   color: var(--foreground);
 }

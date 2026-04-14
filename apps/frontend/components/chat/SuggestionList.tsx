@@ -18,18 +18,19 @@ export type SuggestionItem = {
   type: TriggerType;
   path?: string;
   agent?: string;
+  command?: string;
   group?: 'agent' | 'recent' | 'search' | 'default';
 };
 
 export const BUILTIN_COMMANDS: SuggestionItem[] = [
-  { id: 'undo', label: '/undo', value: '/undo', description: 'Undo last user message', type: 'command' },
-  { id: 'redo', label: '/redo', value: '/redo', description: 'Redo last undone message', type: 'command' },
-  { id: 'compact', label: '/compact', value: '/compact', description: 'Compact this session', type: 'command' },
-  { id: 'summarize', label: '/summarize', value: '/summarize', description: 'Compact this session', type: 'command' },
-  { id: 'share', label: '/share', value: '/share', description: 'Share this session', type: 'command' },
-  { id: 'unshare', label: '/unshare', value: '/unshare', description: 'Unshare this session', type: 'command' },
-  { id: 'clear', label: '/clear', value: '/clear', description: 'Clear the input', type: 'command' },
-  { id: 'reset', label: '/reset', value: '/reset', description: 'Clear input and context', type: 'command' },
+  { id: 'undo', label: '/undo', value: '/undo', command: 'undo', description: 'Undo last user message', type: 'command' },
+  { id: 'redo', label: '/redo', value: '/redo', command: 'redo', description: 'Redo last undone message', type: 'command' },
+  { id: 'compact', label: '/compact', value: '/compact', command: 'compact', description: 'Compact this session', type: 'command' },
+  { id: 'summarize', label: '/summarize', value: '/summarize', command: 'summarize', description: 'Compact this session', type: 'command' },
+  { id: 'share', label: '/share', value: '/share', command: 'share', description: 'Share this session', type: 'command' },
+  { id: 'unshare', label: '/unshare', value: '/unshare', command: 'unshare', description: 'Unshare this session', type: 'command' },
+  { id: 'clear', label: '/clear', value: '/clear', command: 'clear', description: 'Clear the input', type: 'command' },
+  { id: 'reset', label: '/reset', value: '/reset', command: 'reset', description: 'Clear input and context', type: 'command' },
 ];
 
 type SuggestionListProps = {

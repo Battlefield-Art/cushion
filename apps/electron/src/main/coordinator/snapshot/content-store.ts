@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import { createReadStream } from 'fs';
 import { createHash } from 'crypto';
 import path from 'path';
-import writeFileAtomic from 'write-file-atomic';
+import { writeFileAtomicWithRetry } from '../atomic-write';
 
 export class ContentStore {
   constructor(private readonly blobsDir: string) {}
@@ -49,7 +49,7 @@ export class ContentStore {
   async writeFileFromBlob(sha: string, destAbsPath: string): Promise<void> {
     const data = await this.readBlob(sha);
     await fs.mkdir(path.dirname(destAbsPath), { recursive: true });
-    await writeFileAtomic(destAbsPath, data);
+    await writeFileAtomicWithRetry(destAbsPath, data);
   }
 
   async deleteBlob(sha: string): Promise<void> {

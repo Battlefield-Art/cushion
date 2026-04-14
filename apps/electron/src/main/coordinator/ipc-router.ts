@@ -12,7 +12,6 @@ import {
   handleSnapshotTrack,
   handleSnapshotRevertToMessage,
   handleSnapshotUnrevert,
-  handleSnapshotDiff,
   handleSnapshotList,
 } from './handlers/snapshot';
 import { DEFAULT_ALLOWED_EXTENSIONS } from './constants';
@@ -233,10 +232,6 @@ export async function initCoordinator(mainWindow: BrowserWindow) {
 
   ipcMain.handle('coordinator:snapshot/unrevert', async (_event, params: RPCParams<'snapshot/unrevert'>) => {
     return handleSnapshotUnrevert(snapshotManager, params);
-  });
-
-  ipcMain.handle('coordinator:snapshot/diff', async (_event, params: RPCParams<'snapshot/diff'>) => {
-    return handleSnapshotDiff(snapshotManager, params);
   });
 
   ipcMain.handle('coordinator:snapshot/list', async (_event, params: RPCParams<'snapshot/list'>) => {

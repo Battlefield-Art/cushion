@@ -46,12 +46,13 @@ export function usePromptSuggestions() {
       .filter((command) => !builtinIds.has(command.name) &&
         !(command.source === 'skill' && disabled.has(command.name)))
       .map((command) => ({
-          id: `cmd-${command.name}`,
-          label: `/${command.name}`,
-          value: `/${command.name}`,
-          description: command.description,
-          type: 'command' as const,
-        }));
+        id: `cmd-${command.name}`,
+        label: `/${command.name}`,
+        value: `/${command.name}`,
+        command: command.name,
+        description: command.description,
+        type: 'command' as const,
+      }));
     return [...BUILTIN_COMMANDS, ...dynamic];
   }, [commands, disabledSkills]);
 

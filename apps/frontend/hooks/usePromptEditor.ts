@@ -122,17 +122,6 @@ export function usePromptEditor({ disabled, trigger, setTriggerState, updateTrig
       if (trigger) {
         setRangeEdge(editor, range, 'start', trigger.start);
         setRangeEdge(editor, range, 'end', cursorPosition);
-      } else {
-        const textBeforeCursor = parseFromDOM(editor)
-          .map((p) => p.content)
-          .join('')
-          .substring(0, cursorPosition);
-        const atMatch = textBeforeCursor.match(/@(\S*)$/);
-        if (atMatch) {
-          const start = atMatch.index ?? cursorPosition - atMatch[0].length;
-          setRangeEdge(editor, range, 'start', start);
-          setRangeEdge(editor, range, 'end', cursorPosition);
-        }
       }
 
       range.deleteContents();

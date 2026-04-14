@@ -26,7 +26,6 @@ import {
 import { handleAbortSession } from './chat-session-actions';
 import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
 
-/** Clear the prompt from state, returning the values needed to restore on error. */
 function clearPrompt(
   set: ChatStoreSet,
   sessionKey: string,
@@ -53,7 +52,6 @@ function clearPrompt(
   });
 }
 
-/** Restore the prompt in state and record the session error. */
 function restorePrompt(
   set: ChatStoreSet,
   sessionKey: string,
@@ -88,10 +86,6 @@ function restorePrompt(
   });
 }
 
-/**
- * Clear the prompt, run an API call, and restore the prompt on error.
- * Re-throws the error after restoring so callers can still bail out.
- */
 async function withPromptClearRestore(
   set: ChatStoreSet,
   sessionKey: string,
@@ -131,7 +125,7 @@ export async function handleSendPrompt(
     if (isBusy) {
       set({ pendingInterrupt: { sessionID: activeId, payload: input } });
       await handleAbortSession(get, set, activeId);
-      return; // Event handler will send when session goes idle
+      return;
     }
   }
 
@@ -143,7 +137,6 @@ export async function handleSendPrompt(
   const hasFileParts = inlineParts.some((p) => p.type === 'file');
   if (!trimmed && attachments.length === 0 && !hasFileParts) return;
 
-  // Validate agent and model before creating a session to prevent orphaned empty sessions.
   const resolvedAgent = resolveAgentName(state.agents, state.selectedAgent);
   if (!resolvedAgent) {
     throw new Error('No agent available. Configure an agent in OpenCode to send messages.');

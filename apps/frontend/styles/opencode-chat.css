@@ -496,14 +496,16 @@
   padding: 6px 8px;
 }
 
-/* --- Copy button --- */
-[data-chat-theme="opencode"] [data-component="copy-button"] {
+/* --- Action icon buttons (copy, revert) --- */
+[data-chat-theme="opencode"] [data-component="copy-button"],
+[data-chat-theme="opencode"] [data-component="revert-button"] {
   border-color: var(--oc-border-weak-base);
   background: var(--oc-background-base);
   color: var(--oc-text-base);
 }
 
-[data-chat-theme="opencode"] [data-component="copy-button"]:hover {
+[data-chat-theme="opencode"] [data-component="copy-button"]:hover,
+[data-chat-theme="opencode"] [data-component="revert-button"]:hover {
   background: var(--oc-background-stronger);
   color: var(--oc-text-strong);
 }

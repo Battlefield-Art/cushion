@@ -39,10 +39,6 @@ function bestTextPart(parts: Part[]) {
   }, undefined);
 }
 
-/**
- * Extract prompt content from message parts so undo can restore the original user input.
- * Mirrors opencode's extractPromptFromParts, adapted to cushion's PromptPart shape.
- */
 export function extractPromptFromParts(parts: Part[], opts?: { directory?: string }): PromptPart[] {
   const textPart = bestTextPart(parts);
   const text = textPart?.text ?? '';

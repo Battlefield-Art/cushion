@@ -37,12 +37,13 @@ function sleep(ms: number): Promise<void> {
 
 export async function writeFileAtomicWithRetry(
   fullPath: string,
-  content: string,
-  encoding: BufferEncoding
+  content: string | Buffer,
+  encoding?: BufferEncoding
 ): Promise<void> {
+  const options = typeof content === 'string' ? { encoding } : undefined;
   for (let attempt = 0; ; attempt++) {
     try {
-      await writeFileAtomic(fullPath, content, { encoding });
+      await writeFileAtomic(fullPath, content, options);
       return;
     } catch (error) {
       if (!isTransientError(error)) {
@@ -53,7 +54,7 @@ export async function writeFileAtomicWithRetry(
 
       if (attempt >= RETRY_DELAYS_MS.length) {
         if (process.platform === 'win32') {
-          await fs.writeFile(fullPath, content, { encoding });
+          await fs.writeFile(fullPath, content, options);
           return;
         }
         throw error;

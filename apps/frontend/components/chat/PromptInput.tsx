@@ -174,9 +174,9 @@ export function PromptInput({
   };
 
   const handleCommandSelect = (item: SuggestionItem) => {
-    const commandId = item.id.startsWith('cmd-') ? item.id.slice(4) : item.id;
-    if (runLocalCommand(commandId)) return;
-    addPart({ type: 'command', content: item.label, command: commandId });
+    if (!item.command) return;
+    if (runLocalCommand(item.command)) return;
+    addPart({ type: 'command', content: item.label, command: item.command });
     setTriggerState(null);
   };
 
