@@ -25,6 +25,7 @@ import {
 } from './chat-store-utils';
 import { useDiffReviewStore } from './diffReviewStore';
 import { useWorkspaceStore } from './workspaceStore';
+import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
 
 // Convert a path from OpenCode's namespace to a workspace-relative path.
 function toWorkspacePath(openCodePath: string): string {
@@ -259,6 +260,23 @@ export async function handleConnect(
   if (nextActive) {
     await get().loadSessionMessages(nextActive);
     if (!isCurrent()) return;
+  }
+
+  try {
+    const coordinator = await getSharedCoordinatorClient();
+    const snapshotInfo = await coordinator.snapshotList();
+    if (isCurrent()) {
+      const merged: Record<string, string | null> = { ...(snapshotInfo?.revertPointers ?? {}) };
+      for (const session of sessions) {
+        const serverPointer = session.revert?.messageID ?? null;
+        if (serverPointer || session.id in merged) {
+          merged[session.id] = serverPointer;
+        }
+      }
+      set({ revertPointers: merged });
+    }
+  } catch (err) {
+    console.warn('[Snapshot] list failed on connect:', err);
   }
 
   unsubscribeStatus = onOpenCodeStatus((state) => {

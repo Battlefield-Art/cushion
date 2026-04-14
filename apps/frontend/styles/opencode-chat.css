@@ -509,8 +509,8 @@
 }
 
 [data-chat-theme="opencode"] [data-component="copy-button"][data-copied="true"] {
-  color: var(--oc-surface-success-strong);
-  border-color: var(--oc-border-success-base);
+  color: var(--oc-text-secondary);
+  border-color: var(--oc-border-base);
 }
 
 /* --- Diff change indicators --- */

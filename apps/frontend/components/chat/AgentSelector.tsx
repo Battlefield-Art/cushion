@@ -10,12 +10,13 @@ type AgentSelectorProps = {
   compactLevel?: number;
 };
 
-const COMPACT_LABEL_LENGTHS = [0, 12, 8, 3] as const;
+const COMPACT_LABEL_LENGTHS = [0, 12, 8, 3, 1] as const;
 const COMPACT_SIZE_CLASSES = [
   'gap-1.5 pl-2 pr-1 max-w-[160px]',
   'gap-1.5 pl-2 pr-1 max-w-[16ch]',
   'gap-1 pl-2 pr-1 max-w-[12ch]',
   'gap-1 pl-2 pr-1 max-w-[7ch]',
+  'gap-1 pl-1.5 pr-1',
 ] as const;
 
 function resolveCompactLevel(level?: number): number {
@@ -28,6 +29,7 @@ function getCompactLabel(label: string, maxLength = 3): string {
   const trimmed = label.trim();
   if (maxLength <= 0) return '';
   if (trimmed.length <= maxLength) return trimmed;
+  if (maxLength <= 1) return trimmed.charAt(0);
   return `${trimmed.slice(0, maxLength)}...`;
 }
 
@@ -60,7 +62,7 @@ export function AgentSelector({ disabled = false, compactLevel }: AgentSelectorP
           disabled={disabled}
           title={displayLabel}
           className={cn(
-            'h-7 min-w-0 rounded-md border border-transparent bg-transparent text-[14px] font-normal text-muted-foreground hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 flex items-center transition-colors',
+            'h-7 min-w-0 shrink-0 rounded-md border border-transparent bg-transparent text-[14px] font-normal text-muted-foreground hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 flex items-center transition-colors',
             isOpen && 'bg-[var(--overlay-10)]',
             sizeClass
           )}

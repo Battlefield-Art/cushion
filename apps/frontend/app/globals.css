@@ -554,7 +554,7 @@ body {
 }
 
 .markdown-copy-button[data-copied="true"] {
-  color: var(--accent-green);
+  color: var(--foreground-muted);
   opacity: 1;
 }
 
@@ -654,8 +654,8 @@ body {
 }
 
 [data-component="copy-button"][data-copied="true"] {
-  color: var(--accent-green);
-  border-color: var(--accent-green);
+  color: var(--foreground-muted);
+  border-color: var(--border);
 }
 
 [data-component="user-message"] {
@@ -857,7 +857,8 @@ body {
 
 /* Inline pill styles – colored text only, no box */
 [data-slot="prompt-input-editor"] [data-type="file"],
-[data-slot="prompt-input-editor"] [data-type="agent"] {
+[data-slot="prompt-input-editor"] [data-type="agent"],
+[data-slot="prompt-input-editor"] [data-type="command"] {
   color: var(--md-accent);
   font-weight: 500;
 }

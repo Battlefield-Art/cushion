@@ -24,6 +24,7 @@ import {
   unwrap,
 } from './chat-store-utils';
 import { handleAbortSession } from './chat-session-actions';
+import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
 
 /** Clear the prompt from state, returning the values needed to restore on error. */
 function clearPrompt(
@@ -389,6 +390,26 @@ export async function handleSendPrompt(
 
   void (async () => {
     try {
+      try {
+        const coordinator = await getSharedCoordinatorClient();
+        const trackResult = await coordinator.snapshotTrack(nextSessionId, messageId);
+        if (trackResult.skipped.length > 0) {
+          const { showGlobalToast } = await import('@/utils/toast-bridge');
+          const preview = trackResult.skipped
+            .slice(0, 3)
+            .map((f) => `${f.path} (${(f.size / (1024 * 1024)).toFixed(1)}MB)`)
+            .join(', ');
+          const more = trackResult.skipped.length > 3 ? ` +${trackResult.skipped.length - 3} more` : '';
+          showGlobalToast({
+            title: 'Large files not tracked',
+            description: `Undo won't restore these files (>100MB): ${preview}${more}`,
+            variant: 'default',
+            duration: 6000,
+          });
+        }
+      } catch (snapshotErr) {
+        console.warn('[Snapshot] track failed, proceeding with prompt:', snapshotErr);
+      }
       await client.session.prompt({
         sessionID: nextSessionId,
         directory,

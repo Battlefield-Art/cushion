@@ -160,13 +160,6 @@ export function PromptInput({
   };
 
   const applySuggestion = (item: SuggestionItem) => {
-    if (item.type === 'command') {
-      const value = item.value.endsWith(' ') ? item.value : `${item.value} `;
-      addPart({ type: 'text', content: value });
-      setTriggerState(null);
-      return;
-    }
-
     if (item.path) {
       addPart({ type: 'file', content: item.value, path: item.path });
       setTriggerState(null);
@@ -181,8 +174,10 @@ export function PromptInput({
   };
 
   const handleCommandSelect = (item: SuggestionItem) => {
-    if (runLocalCommand(item.id)) return;
-    applySuggestion(item);
+    const commandId = item.id.startsWith('cmd-') ? item.id.slice(4) : item.id;
+    if (runLocalCommand(commandId)) return;
+    addPart({ type: 'command', content: item.label, command: commandId });
+    setTriggerState(null);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -312,6 +307,7 @@ export function PromptInput({
       {trigger && (
         <SuggestionList
           suggestions={suggestions}
+          activeIndex={activeIndex}
           onSelect={handleSuggestionSelect}
         />
       )}
@@ -384,7 +380,7 @@ export function PromptInput({
                     disabled={disabled}
                     title={variantLabel}
                     className={cn(
-                      "h-7 min-w-0 rounded-md border border-transparent bg-transparent text-sm text-muted-foreground hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
+                      "h-7 min-w-0 shrink-0 rounded-md border border-transparent bg-transparent text-sm text-muted-foreground hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
                       VARIANT_SIZE_CLASSES[Math.min(compactLevel, COMPACT_LEVEL_MAX)]
                     )}
                     aria-label="Cycle thinking effort"
