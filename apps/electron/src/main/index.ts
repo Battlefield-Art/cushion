@@ -144,7 +144,8 @@ app.on('second-instance', (_event, commandLine) => {
 
 app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    callback(permission === 'media');
+    const allowed = ['media', 'clipboard-read', 'clipboard-sanitized-write'];
+    callback(allowed.includes(permission));
   });
 
   const cliPath = extractPathArg(process.argv.slice(1));

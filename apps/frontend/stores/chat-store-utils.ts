@@ -108,6 +108,8 @@ export type ChatState = {
   questions: Record<string, QuestionRequest[]>;
   sessionErrors: Record<string, string | undefined>;
   compactedSessions: Record<string, boolean>;
+  /** sessionID -> messageID currently reverted to (files rolled back before this user message) */
+  revertPointers: Record<string, string | null>;
   reviewMode: boolean;
   /** Sessions currently being aborted (prevents double-abort, drives UI) */
   abortingSessions: Record<string, boolean>;
@@ -144,6 +146,7 @@ export type ChatActions = {
   abortSession: (sessionID?: string | null) => Promise<void>;
   undoSession: () => Promise<void>;
   redoSession: () => Promise<void>;
+  revertToTurn: (messageID: string) => Promise<void>;
   compactSession: () => Promise<void>;
   shareSession: () => Promise<string | null>;
   unshareSession: () => Promise<void>;
@@ -215,6 +218,7 @@ export const initialState: ChatState = {
   questions: {},
   sessionErrors: {},
   compactedSessions: {},
+  revertPointers: {},
   reviewMode: false,
   abortingSessions: {},
   pendingInterrupt: null,

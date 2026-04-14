@@ -34,6 +34,10 @@ export function handleApplyEvent(
           ...state.activeSessionByDirectory,
           [directory]: state.activeSessionId ?? session.id,
         },
+        revertPointers: {
+          ...state.revertPointers,
+          [session.id]: session.revert?.messageID ?? null,
+        },
         ...(state.activeSessionId
           ? {}
           : {

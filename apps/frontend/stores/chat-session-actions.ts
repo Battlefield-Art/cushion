@@ -4,6 +4,9 @@ import {
   findNextUserMessage,
   resolveModel,
 } from '@/lib/chat-helpers';
+import { getSharedCoordinatorClient } from '@/lib/shared-coordinator-client';
+import { extractPromptFromParts } from '@/lib/extract-prompt';
+import { mapSdkError } from '@/lib/sdk-result';
 import {
   type ChatStoreGet,
   type ChatStoreSet,
@@ -163,17 +166,84 @@ export async function handleUndoSession(get: ChatStoreGet, set: ChatStoreSet) {
   if (!directory || !sessionID) {
     throw new Error('No active session to undo.');
   }
-  const session = getSessionById(state.sessions, sessionID);
   const messages = state.messages[sessionID] ?? [];
-  const target = findLastUserMessage(messages, session?.revert?.messageID);
+  const target = findLastUserMessage(messages, state.revertPointers[sessionID] ?? undefined);
   if (!target) {
     throw new Error('Nothing to undo.');
   }
   if (state.sessionStatus[sessionID]?.type !== 'idle') {
     await get().abortSession(sessionID).catch(() => undefined);
   }
-  const client = getDirectoryClient(directory, state.baseUrl);
-  await client.session.revert({ sessionID, messageID: target.id, directory });
+  const coordinator = await getSharedCoordinatorClient();
+  const result = await coordinator.snapshotRevertToMessage(sessionID, target.id);
+  if (!result?.success) {
+    throw new Error('Undo failed: snapshot not found for this turn.');
+  }
+  const prevPointer = state.revertPointers[sessionID] ?? null;
+  set((prev) => ({
+    revertPointers: { ...prev.revertPointers, [sessionID]: target.id },
+  }));
+  try {
+    const client = getDirectoryClient(directory, state.baseUrl);
+    await client.session.revert({ sessionID, directory, messageID: target.id });
+  } catch (error) {
+    set((prev) => ({
+      revertPointers: { ...prev.revertPointers, [sessionID]: prevPointer },
+    }));
+    throw new Error(mapSdkError(error).message);
+  }
+
+  const parts = state.parts[target.id];
+  if (parts) {
+    const restored = extractPromptFromParts(parts, { directory });
+    get().setPromptParts(restored);
+  }
+}
+
+export async function handleRevertToTurn(
+  messageID: string,
+  get: ChatStoreGet,
+  set: ChatStoreSet,
+) {
+  const state = get();
+  const directory = state.directory;
+  const sessionID = state.activeSessionId;
+  if (!directory || !sessionID) {
+    throw new Error('No active session to revert.');
+  }
+  const messages = state.messages[sessionID] ?? [];
+  const target = messages.find((m) => m.id === messageID && m.role === 'user');
+  if (!target) {
+    throw new Error('Revert failed: message not found.');
+  }
+  if (state.revertPointers[sessionID] === messageID) return;
+  if (state.sessionStatus[sessionID]?.type !== 'idle') {
+    await get().abortSession(sessionID).catch(() => undefined);
+  }
+  const coordinator = await getSharedCoordinatorClient();
+  const result = await coordinator.snapshotRevertToMessage(sessionID, messageID);
+  if (!result?.success) {
+    throw new Error('Revert failed: snapshot not found for this turn.');
+  }
+  const prevPointer = state.revertPointers[sessionID] ?? null;
+  set((prev) => ({
+    revertPointers: { ...prev.revertPointers, [sessionID]: messageID },
+  }));
+  try {
+    const client = getDirectoryClient(directory, state.baseUrl);
+    await client.session.revert({ sessionID, directory, messageID });
+  } catch (error) {
+    set((prev) => ({
+      revertPointers: { ...prev.revertPointers, [sessionID]: prevPointer },
+    }));
+    throw new Error(mapSdkError(error).message);
+  }
+
+  const parts = state.parts[messageID];
+  if (parts) {
+    const restored = extractPromptFromParts(parts, { directory });
+    get().setPromptParts(restored);
+  }
 }
 
 export async function handleRedoSession(get: ChatStoreGet, set: ChatStoreSet) {
@@ -183,19 +253,50 @@ export async function handleRedoSession(get: ChatStoreGet, set: ChatStoreSet) {
   if (!directory || !sessionID) {
     throw new Error('No active session to redo.');
   }
-  const session = getSessionById(state.sessions, sessionID);
-  const revertMessageID = session?.revert?.messageID;
+  const revertMessageID = state.revertPointers[sessionID];
   if (!revertMessageID) {
     throw new Error('Nothing to redo.');
   }
   const messages = state.messages[sessionID] ?? [];
   const nextMessage = findNextUserMessage(messages, revertMessageID);
-  const client = getDirectoryClient(directory, state.baseUrl);
+  const coordinator = await getSharedCoordinatorClient();
+  const prevPointer = state.revertPointers[sessionID] ?? null;
   if (!nextMessage) {
-    await client.session.unrevert({ sessionID, directory });
+    const result = await coordinator.snapshotUnrevert(sessionID);
+    if (!result?.success) {
+      throw new Error('Redo failed: no snapshot to restore.');
+    }
+    set((prev) => ({
+      revertPointers: { ...prev.revertPointers, [sessionID]: null },
+    }));
+    try {
+      const client = getDirectoryClient(directory, state.baseUrl);
+      await client.session.unrevert({ sessionID, directory });
+    } catch (error) {
+      set((prev) => ({
+        revertPointers: { ...prev.revertPointers, [sessionID]: prevPointer },
+      }));
+      throw new Error(mapSdkError(error).message);
+    }
+    get().setPromptText('');
     return;
   }
-  await client.session.revert({ sessionID, messageID: nextMessage.id, directory });
+  const result = await coordinator.snapshotRevertToMessage(sessionID, nextMessage.id);
+  if (!result?.success) {
+    throw new Error('Redo failed: snapshot not found for this turn.');
+  }
+  set((prev) => ({
+    revertPointers: { ...prev.revertPointers, [sessionID]: nextMessage.id },
+  }));
+  try {
+    const client = getDirectoryClient(directory, state.baseUrl);
+    await client.session.revert({ sessionID, directory, messageID: nextMessage.id });
+  } catch (error) {
+    set((prev) => ({
+      revertPointers: { ...prev.revertPointers, [sessionID]: prevPointer },
+    }));
+    throw new Error(mapSdkError(error).message);
+  }
 }
 
 export async function handleCompactSession(get: ChatStoreGet, set: ChatStoreSet) {

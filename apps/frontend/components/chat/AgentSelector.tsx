@@ -4,32 +4,17 @@ import { Check, ChevronDown } from 'lucide-react';
 import { useChatStore } from '@/stores/chatStore';
 import { Popover, PopoverContent, PopoverTrigger } from './Popover';
 import { cn } from '@/lib/utils';
+import {
+  COMPACT_LABEL_LENGTHS,
+  COMPACT_SIZE_CLASSES,
+  resolveCompactLevel,
+  getCompactLabel,
+} from './compact-selector';
 
 type AgentSelectorProps = {
   disabled?: boolean;
   compactLevel?: number;
 };
-
-const COMPACT_LABEL_LENGTHS = [0, 12, 8, 3] as const;
-const COMPACT_SIZE_CLASSES = [
-  'gap-1.5 pl-2 pr-1 max-w-[160px]',
-  'gap-1.5 pl-2 pr-1 max-w-[16ch]',
-  'gap-1 pl-2 pr-1 max-w-[12ch]',
-  'gap-1 pl-2 pr-1 max-w-[7ch]',
-] as const;
-
-function resolveCompactLevel(level?: number): number {
-  const maxLevel = COMPACT_LABEL_LENGTHS.length - 1;
-  if (typeof level !== 'number' || Number.isNaN(level)) return 0;
-  return Math.min(Math.max(level, 0), maxLevel);
-}
-
-function getCompactLabel(label: string, maxLength = 3): string {
-  const trimmed = label.trim();
-  if (maxLength <= 0) return '';
-  if (trimmed.length <= maxLength) return trimmed;
-  return `${trimmed.slice(0, maxLength)}...`;
-}
 
 function formatAgentLabel(label: string): string {
   const trimmed = label.trim();
@@ -60,7 +45,7 @@ export function AgentSelector({ disabled = false, compactLevel }: AgentSelectorP
           disabled={disabled}
           title={displayLabel}
           className={cn(
-            'h-7 min-w-0 rounded-md border border-transparent bg-transparent text-[14px] font-normal text-muted-foreground hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 flex items-center transition-colors',
+            'h-7 min-w-0 shrink-0 rounded-md border border-transparent bg-transparent text-[14px] font-normal text-muted-foreground hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 flex items-center transition-colors',
             isOpen && 'bg-[var(--overlay-10)]',
             sizeClass
           )}

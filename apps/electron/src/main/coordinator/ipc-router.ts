@@ -7,6 +7,13 @@ import type {
 import { WorkspaceManager } from './workspace-manager';
 import { ConfigManager } from './config-manager';
 import { ConfigWatcher } from './config-watcher';
+import { SnapshotManager } from './snapshot/snapshot-manager';
+import {
+  handleSnapshotTrack,
+  handleSnapshotRevertToMessage,
+  handleSnapshotUnrevert,
+  handleSnapshotList,
+} from './handlers/snapshot';
 import { DEFAULT_ALLOWED_EXTENSIONS } from './constants';
 import { ensurePermissionDefaults } from './opencode-config';
 
@@ -92,6 +99,7 @@ import {
 let workspaceManager: WorkspaceManager;
 let configManager: ConfigManager;
 let configWatcher: ConfigWatcher;
+let snapshotManager: SnapshotManager;
 let pandocBinaryManager: PandocBinaryManager;
 let dictationConfigManager: DictationConfigManager;
 let postProcessor: PostProcessor;
@@ -150,6 +158,7 @@ export async function initCoordinator(mainWindow: BrowserWindow) {
   configManager = new ConfigManager();
   configWatcher = new ConfigWatcher();
   configManager.setConfigWatcher(configWatcher);
+  snapshotManager = new SnapshotManager();
 
   const notifyRenderer = (channel: string, data: unknown) => {
     mainWindow.webContents.send(`coordinator:${channel}`, data);
@@ -204,8 +213,29 @@ export async function initCoordinator(mainWindow: BrowserWindow) {
     configManager.setWorkspacePath(params.projectPath);
     configWatcher.stop();
     configWatcher.start(params.projectPath);
+    snapshotManager.setWorkspacePath(params.projectPath);
+    snapshotManager.prune().catch((err) => {
+      console.warn('[Snapshot] prune failed:', err?.message || err);
+    });
     await loadFileFilter();
     return result;
+  });
+
+  // Snapshot handlers (AI-turn undo/redo)
+  ipcMain.handle('coordinator:snapshot/track', async (_event, params: RPCParams<'snapshot/track'>) => {
+    return handleSnapshotTrack(snapshotManager, params);
+  });
+
+  ipcMain.handle('coordinator:snapshot/revertToMessage', async (_event, params: RPCParams<'snapshot/revertToMessage'>) => {
+    return handleSnapshotRevertToMessage(snapshotManager, params);
+  });
+
+  ipcMain.handle('coordinator:snapshot/unrevert', async (_event, params: RPCParams<'snapshot/unrevert'>) => {
+    return handleSnapshotUnrevert(snapshotManager, params);
+  });
+
+  ipcMain.handle('coordinator:snapshot/list', async (_event, params: RPCParams<'snapshot/list'>) => {
+    return handleSnapshotList(snapshotManager, params);
   });
 
   ipcMain.handle('coordinator:workspace/select-folder', async () => {

@@ -125,6 +125,22 @@ export class CoordinatorClient {
     return this.call('config/read', { file });
   }
 
+  snapshotTrack(sessionID: string, messageID: string) {
+    return this.call('snapshot/track', { sessionID, messageID });
+  }
+
+  snapshotRevertToMessage(sessionID: string, messageID: string) {
+    return this.call('snapshot/revertToMessage', { sessionID, messageID });
+  }
+
+  snapshotUnrevert(sessionID: string) {
+    return this.call('snapshot/unrevert', { sessionID });
+  }
+
+  snapshotList(sessionID?: string) {
+    return this.call('snapshot/list', { sessionID });
+  }
+
   writeConfig(file: string, content: string) {
     return this.call('config/write', { file, content });
   }

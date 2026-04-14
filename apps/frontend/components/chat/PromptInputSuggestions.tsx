@@ -45,17 +45,14 @@ export function usePromptSuggestions() {
     const dynamic = commands
       .filter((command) => !builtinIds.has(command.name) &&
         !(command.source === 'skill' && disabled.has(command.name)))
-      .map((command) => {
-        const template = typeof command.template === 'string' ? command.template.trim() : '';
-        const value = template ? `/${command.name} ${template}` : `/${command.name}`;
-        return {
-          id: `cmd-${command.name}`,
-          label: `/${command.name}`,
-          value,
-          description: command.description,
-          type: 'command' as const,
-        };
-      });
+      .map((command) => ({
+        id: `cmd-${command.name}`,
+        label: `/${command.name}`,
+        value: `/${command.name}`,
+        command: command.name,
+        description: command.description,
+        type: 'command' as const,
+      }));
     return [...BUILTIN_COMMANDS, ...dynamic];
   }, [commands, disabledSkills]);
 

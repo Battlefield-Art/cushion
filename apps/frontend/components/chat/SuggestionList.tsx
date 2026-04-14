@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Brain } from 'lucide-react';
 import { getDirectory, getFilename } from '@/lib/path-utils';
 
@@ -17,27 +18,34 @@ export type SuggestionItem = {
   type: TriggerType;
   path?: string;
   agent?: string;
+  command?: string;
   group?: 'agent' | 'recent' | 'search' | 'default';
 };
 
 export const BUILTIN_COMMANDS: SuggestionItem[] = [
-  { id: 'undo', label: '/undo', value: '/undo', description: 'Undo last user message', type: 'command' },
-  { id: 'redo', label: '/redo', value: '/redo', description: 'Redo last undone message', type: 'command' },
-  { id: 'compact', label: '/compact', value: '/compact', description: 'Compact this session', type: 'command' },
-  { id: 'summarize', label: '/summarize', value: '/summarize', description: 'Compact this session', type: 'command' },
-  { id: 'share', label: '/share', value: '/share', description: 'Share this session', type: 'command' },
-  { id: 'unshare', label: '/unshare', value: '/unshare', description: 'Unshare this session', type: 'command' },
-  { id: 'clear', label: '/clear', value: '/clear', description: 'Clear the input', type: 'command' },
-  { id: 'reset', label: '/reset', value: '/reset', description: 'Clear input and context', type: 'command' },
+  { id: 'undo', label: '/undo', value: '/undo', command: 'undo', description: 'Undo last user message', type: 'command' },
+  { id: 'redo', label: '/redo', value: '/redo', command: 'redo', description: 'Redo last undone message', type: 'command' },
+  { id: 'compact', label: '/compact', value: '/compact', command: 'compact', description: 'Compact this session', type: 'command' },
+  { id: 'summarize', label: '/summarize', value: '/summarize', command: 'summarize', description: 'Compact this session', type: 'command' },
+  { id: 'share', label: '/share', value: '/share', command: 'share', description: 'Share this session', type: 'command' },
+  { id: 'unshare', label: '/unshare', value: '/unshare', command: 'unshare', description: 'Unshare this session', type: 'command' },
+  { id: 'clear', label: '/clear', value: '/clear', command: 'clear', description: 'Clear the input', type: 'command' },
+  { id: 'reset', label: '/reset', value: '/reset', command: 'reset', description: 'Clear input and context', type: 'command' },
 ];
 
 type SuggestionListProps = {
   suggestions: SuggestionItem[];
+  activeIndex?: number;
   onSelect: (item: SuggestionItem) => void;
 };
 
-export function SuggestionList({ suggestions, onSelect }: SuggestionListProps) {
+export function SuggestionList({ suggestions, activeIndex = -1, onSelect }: SuggestionListProps) {
   const items = suggestions.slice(0, 20);
+  const activeRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
 
   if (items.length === 0) {
     return (
@@ -57,20 +65,22 @@ export function SuggestionList({ suggestions, onSelect }: SuggestionListProps) {
              max-h-72 overflow-auto rounded-md border border-border bg-background shadow-md p-1 thin-scrollbar"
       onMouseDown={(event) => event.preventDefault()}
     >
-      {items.map((item) => {
+      {items.map((item, index) => {
         const isAgent = 'agent' in item && !!item.agent;
         const hasPath = 'path' in item && !!item.path;
         const agent = isAgent ? item.agent : undefined;
         const description = 'description' in item ? item.description : undefined;
         const filePath: string = hasPath && 'path' in item ? (item.path as string) : '';
         const dir = hasPath ? getDirectory(filePath) : '';
+        const isActive = index === activeIndex;
 
         return (
           <button
             key={item.id}
+            ref={isActive ? activeRef : undefined}
             type="button"
             onClick={() => onSelect(item)}
-            className="w-full flex items-center gap-2 rounded-md px-2 py-1 text-xs text-left text-muted-foreground hover:bg-[var(--overlay-10)] hover:text-foreground transition-colors"
+            className={`w-full flex items-center gap-2 rounded-md px-2 py-1 text-xs text-left transition-colors ${isActive ? 'bg-[var(--overlay-10)] text-foreground' : 'text-muted-foreground hover:bg-[var(--overlay-10)] hover:text-foreground'}`}
           >
             {isAgent ? (
               <>

@@ -14,8 +14,9 @@ import { DiffSummary } from './DiffView';
 import { ToolPartView, AttachmentList, ContextToolGroup, CONTEXT_GROUP_TOOLS } from './ToolPartView';
 import { CopyButton } from './CopyButton';
 import { HighlightedText, ContextList } from './UserMessageContent';
+import { useToast } from './Toast';
 import { useThrottledValue } from '@/hooks/useThrottledValue';
-import { Ban } from 'lucide-react';
+import { Ban, Undo2 } from 'lucide-react';
 import {
   type MessageTurn,
   EMPTY_PARTS,
@@ -244,6 +245,7 @@ export function Turn({ turn, sessionId, isWorking, onInteract, showThinking = tr
                           )}
                         </span>
                       )}
+                      <RevertToTurnButton sessionId={sessionId} messageId={turn.userMessage.id} />
                       <CopyButton text={textPart.text} label="Copy message" />
                     </div>
                   )}
@@ -320,6 +322,31 @@ export function Turn({ turn, sessionId, isWorking, onInteract, showThinking = tr
         )}
       </div>
     </div>
+  );
+}
+
+function RevertToTurnButton({ sessionId, messageId }: { sessionId: string; messageId: string }) {
+  const revertToTurn = useChatStore((s) => s.revertToTurn);
+  const isCurrent = useChatStore((s) => s.revertPointers[sessionId] === messageId);
+  const { showToast } = useToast();
+  if (isCurrent) return null;
+  return (
+    <button
+      type="button"
+      data-component="revert-button"
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={(event) => {
+        event.stopPropagation();
+        revertToTurn(messageId).catch((error) => {
+          const message = error instanceof Error && error.message ? error.message : 'Revert failed.';
+          showToast({ variant: 'error', description: message });
+        });
+      }}
+      aria-label="Revert workspace to before this message"
+      title="Revert workspace to before this message"
+    >
+      <Undo2 size={14} />
+    </button>
   );
 }
 

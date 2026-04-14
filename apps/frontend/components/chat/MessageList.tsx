@@ -27,6 +27,7 @@ export function MessageList({ className }: MessageListProps) {
   const setActiveSession = useChatStore((state) => state.setActiveSession);
   const showThinking = useChatStore((s) => s.displayPreferences.showThinking);
   const compactedSessions = useChatStore((s) => s.compactedSessions);
+  const revertPointers = useChatStore((s) => s.revertPointers);
   const [sessionQuery, setSessionQuery] = useState('');
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const [showCustomizeDialog, setShowCustomizeDialog] = useState(false);
@@ -52,7 +53,7 @@ export function MessageList({ className }: MessageListProps) {
   }, [sessionMenuOpen]);
 
   const messages = activeSessionId ? messagesBySession[activeSessionId] ?? EMPTY_MESSAGES : EMPTY_MESSAGES;
-  const revertMessageId = activeSession?.revert?.messageID;
+  const revertMessageId = activeSessionId ? revertPointers[activeSessionId] ?? undefined : undefined;
   const visibleMessages = useMemo(() => {
     if (!revertMessageId) return messages;
     return messages.filter((message) => message.id < revertMessageId);

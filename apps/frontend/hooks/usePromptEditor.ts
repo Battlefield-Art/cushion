@@ -39,7 +39,7 @@ export function usePromptEditor({ disabled, trigger, setTriggerState, updateTrig
         editor.appendChild(createTextFragment(part.content));
         continue;
       }
-      if (part.type === 'file' || part.type === 'agent') {
+      if (part.type === 'file' || part.type === 'agent' || part.type === 'command') {
         editor.appendChild(createPill(part));
       }
     }
@@ -115,21 +115,12 @@ export function usePromptEditor({ disabled, trigger, setTriggerState, updateTrig
     const cursorPosition = getCursorPosition(editor);
     const range = selection.getRangeAt(0);
 
-    if (part.type === 'file' || part.type === 'agent') {
+    if (part.type === 'file' || part.type === 'agent' || part.type === 'command') {
       const pill = createPill(part);
       const gap = document.createTextNode(' ');
-      const textBeforeCursor = parseFromDOM(editor)
-        .map((p) => p.content)
-        .join('')
-        .substring(0, cursorPosition);
-      const atMatch = textBeforeCursor.match(/@(\S*)$/);
 
-      if (trigger?.type === 'mention') {
+      if (trigger) {
         setRangeEdge(editor, range, 'start', trigger.start);
-        setRangeEdge(editor, range, 'end', cursorPosition);
-      } else if (atMatch) {
-        const start = atMatch.index ?? cursorPosition - atMatch[0].length;
-        setRangeEdge(editor, range, 'start', start);
         setRangeEdge(editor, range, 'end', cursorPosition);
       }
 
@@ -146,11 +137,6 @@ export function usePromptEditor({ disabled, trigger, setTriggerState, updateTrig
 
     const fragment = createTextFragment(part.content);
     const last = fragment.lastChild;
-
-    if (trigger?.type === 'command') {
-      setRangeEdge(editor, range, 'start', trigger.start);
-      setRangeEdge(editor, range, 'end', cursorPosition);
-    }
 
     range.deleteContents();
     range.insertNode(fragment);

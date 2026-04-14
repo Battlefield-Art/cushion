@@ -24,12 +24,21 @@ export type AgentPart = {
   end: number;
 };
 
-export type PromptPart = TextPart | FilePart | AgentPart;
+export type CommandPart = {
+  type: 'command';
+  content: string;
+  command: string;
+  start: number;
+  end: number;
+};
+
+export type PromptPart = TextPart | FilePart | AgentPart | CommandPart;
 
 export type InsertPart =
   | { type: 'text'; content: string }
   | { type: 'file'; content: string; path: string; selection?: { startLine: number; endLine: number } }
-  | { type: 'agent'; content: string; name: string };
+  | { type: 'agent'; content: string; name: string }
+  | { type: 'command'; content: string; command: string };
 
 const DEFAULT_PROMPT: PromptPart[] = [{ type: 'text', content: '', start: 0, end: 0 }];
 
@@ -42,6 +51,7 @@ export const isPromptEqual = (left: PromptPart[], right: PromptPart[]): boolean 
     if (a.content !== b.content) return false;
     if (a.type === 'file' && (b as FilePart).path !== a.path) return false;
     if (a.type === 'agent' && (b as AgentPart).name !== a.name) return false;
+    if (a.type === 'command' && (b as CommandPart).command !== a.command) return false;
   }
   return true;
 };
@@ -62,7 +72,7 @@ export const createTextFragment = (content: string): DocumentFragment => {
   return fragment;
 };
 
-export const createPill = (part: { type: 'file' | 'agent'; content: string; path?: string; name?: string; selection?: { startLine: number; endLine: number } }): HTMLElement => {
+export const createPill = (part: { type: 'file' | 'agent' | 'command'; content: string; path?: string; name?: string; command?: string; selection?: { startLine: number; endLine: number } }): HTMLElement => {
   const pill = document.createElement('span');
   pill.textContent = part.content;
   pill.setAttribute('data-type', part.type);
@@ -72,11 +82,16 @@ export const createPill = (part: { type: 'file' | 'agent'; content: string; path
     pill.setAttribute('data-end-line', String(part.selection.endLine));
   }
   if (part.type === 'agent' && part.name) pill.setAttribute('data-name', part.name);
+  if (part.type === 'command' && part.command) pill.setAttribute('data-command', part.command);
   pill.setAttribute('contenteditable', 'false');
   pill.style.userSelect = 'text';
   pill.style.cursor = 'default';
   return pill;
 };
+
+const isPillNode = (node: Node): boolean =>
+  node.nodeType === Node.ELEMENT_NODE
+  && ['file', 'agent', 'command'].includes((node as HTMLElement).dataset.type ?? '');
 
 const getNodeLength = (node: Node): number => {
   if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'BR') return 1;
@@ -110,9 +125,7 @@ export const setCursorPosition = (parent: HTMLElement, position: number): void =
   while (node) {
     const length = getNodeLength(node);
     const isText = node.nodeType === Node.TEXT_NODE;
-    const isPill =
-      node.nodeType === Node.ELEMENT_NODE
-      && ((node as HTMLElement).dataset.type === 'file' || (node as HTMLElement).dataset.type === 'agent');
+    const isPill = isPillNode(node);
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'BR';
 
     if (isText && remaining <= length) {
@@ -175,9 +188,7 @@ export const setRangeEdge = (parent: HTMLElement, range: Range, edge: 'start' | 
   for (const node of nodes) {
     const length = getNodeLength(node);
     const isText = node.nodeType === Node.TEXT_NODE;
-    const isPill =
-      node.nodeType === Node.ELEMENT_NODE
-      && ((node as HTMLElement).dataset.type === 'file' || (node as HTMLElement).dataset.type === 'agent');
+    const isPill = isPillNode(node);
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'BR';
 
     if (isText && remaining <= length) {
@@ -230,6 +241,13 @@ export const parseFromDOM = (editor: HTMLElement): PromptPart[] => {
     position += content.length;
   };
 
+  const pushCommand = (el: HTMLElement) => {
+    const content = el.textContent ?? '';
+    const command = el.dataset.command ?? content.replace(/^\//, '');
+    parts.push({ type: 'command', command, content, start: position, end: position + content.length });
+    position += content.length;
+  };
+
   const visit = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
       buffer += node.textContent ?? '';
@@ -246,6 +264,11 @@ export const parseFromDOM = (editor: HTMLElement): PromptPart[] => {
     if (element.dataset.type === 'agent') {
       flushText();
       pushAgent(element);
+      return;
+    }
+    if (element.dataset.type === 'command') {
+      flushText();
+      pushCommand(element);
       return;
     }
     if (element.tagName === 'BR') {
@@ -289,8 +312,7 @@ export const isNormalizedEditor = (editor: HTMLElement): boolean =>
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return false;
     const element = node as HTMLElement;
-    if (element.dataset.type === 'file') return true;
-    if (element.dataset.type === 'agent') return true;
+    if (isPillNode(node)) return true;
     return element.tagName === 'BR';
   });
 

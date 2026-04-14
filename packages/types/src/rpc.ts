@@ -104,7 +104,48 @@ export interface TranscriptionResult {
   language: string;
 }
 
+export type SnapshotId = string;
+
+export interface SnapshotManifest {
+  version: 1;
+  ts: number;
+  files: Record<string, { sha256: string; size: number } | { size: number; skipped: true }>;
+}
+
+export interface TurnRecord {
+  id: SnapshotId;
+  sessionID: string;
+  messageID: string;
+  ts: number;
+  parentId: SnapshotId | null;
+}
+
 export interface RPCMethodMap {
+  // Snapshot (AI-turn undo/redo)
+  'snapshot/track': {
+    params: { sessionID: string; messageID: string };
+    result: {
+      snapshotId: SnapshotId | null;
+      skipped: { path: string; size: number }[];
+    };
+  };
+  'snapshot/revertToMessage': {
+    params: { sessionID: string; messageID: string };
+    result: { success: boolean; restoredSnapshotId: SnapshotId | null };
+  };
+  'snapshot/unrevert': {
+    params: { sessionID: string };
+    result: { success: boolean; restoredSnapshotId: SnapshotId | null };
+  };
+  'snapshot/list': {
+    params: { sessionID?: string };
+    result: {
+      turns: TurnRecord[];
+      head: SnapshotId | null;
+      revertPointers: Record<string, string | null>;
+    };
+  };
+
   // Workspace
   'workspace/open': {
     params: { projectPath: string };

@@ -1,30 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export const COMPACT_LABEL_LENGTHS = [0, 12, 8, 3] as const;
+export const COMPACT_LABEL_LENGTHS = [0, 12, 8, 3, 1] as const;
 export const COMPACT_LEVEL_MAX = COMPACT_LABEL_LENGTHS.length - 1;
-const COMPACT_STEP_RATIO = 0.16;
-const COMPACT_STEP_MIN = 56;
 
 export const VARIANT_SIZE_CLASSES = [
   'max-w-[160px] px-2.5',
   'max-w-[16ch] px-2.5',
   'max-w-[12ch] px-2',
   'max-w-[7ch] px-2',
+  'px-1.5',
 ] as const;
-
-export function resolveCompactLevel(overflow: number, fullWidth: number): number {
-  if (overflow <= 0 || fullWidth <= 0) return 0;
-  const step = Math.max(COMPACT_STEP_MIN, Math.round(fullWidth * COMPACT_STEP_RATIO));
-  if (overflow <= step * 0.5) return 0;
-  if (overflow <= step * 1.2) return 1;
-  if (overflow <= step * 2) return 2;
-  return Math.min(3, COMPACT_LEVEL_MAX);
-}
 
 export function getCompactLabel(label: string, maxLength = 3): string {
   const trimmed = label.trim();
   if (maxLength <= 0) return '';
   if (trimmed.length <= maxLength) return trimmed;
+  if (maxLength === 1) return trimmed.charAt(0);
   return `${trimmed.slice(0, maxLength)}...`;
 }
 
@@ -33,12 +24,15 @@ type UsePromptCompactOptions = {
   deps: unknown[];
 };
 
+const HYSTERESIS = 16;
+
 export function usePromptCompact({ shellMode, deps }: UsePromptCompactOptions) {
   const [compactLevel, setCompactLevel] = useState(0);
   const footerRef = useRef<HTMLDivElement | null>(null);
   const leftControlsRef = useRef<HTMLDivElement | null>(null);
   const rightControlsRef = useRef<HTMLDivElement | null>(null);
-  const fullLeftWidthRef = useRef(0);
+  const levelRef = useRef(0);
+  const widthAtLevel = useRef<number[]>([]);
 
   const updateFooterCompact = useCallback(() => {
     if (shellMode) return;
@@ -46,41 +40,65 @@ export function usePromptCompact({ shellMode, deps }: UsePromptCompactOptions) {
     const left = leftControlsRef.current;
     const right = rightControlsRef.current;
     if (!footer || !left || !right) return;
+
     const footerWidth = footer.getBoundingClientRect().width;
     const rightWidth = right.getBoundingClientRect().width;
     const available = footerWidth - rightWidth - 12;
-    const measuredLeftWidth = left.scrollWidth;
-    if (fullLeftWidthRef.current === 0) {
-      fullLeftWidthRef.current = measuredLeftWidth;
+    const contentWidth = left.scrollWidth;
+    const current = levelRef.current;
+
+    widthAtLevel.current[current] = contentWidth;
+
+    let next = current;
+
+    if (contentWidth > available + 2) {
+      next = Math.min(current + 1, COMPACT_LEVEL_MAX);
+    } else if (current > 0) {
+      const lowerWidth = widthAtLevel.current[current - 1];
+      if (lowerWidth !== undefined && lowerWidth <= available - HYSTERESIS) {
+        next = current - 1;
+      }
     }
-    const fullLeftWidth = fullLeftWidthRef.current || measuredLeftWidth;
-    const overflow = fullLeftWidth - available;
-    const nextLevel = resolveCompactLevel(overflow, fullLeftWidth);
-    setCompactLevel((prev) => (prev === nextLevel ? prev : nextLevel));
+
+    if (next !== current) {
+      levelRef.current = next;
+      setCompactLevel(next);
+    }
   }, [shellMode]);
 
-  // Reset full width measurement when deps change at compact level 0
   useEffect(() => {
-    if (shellMode || compactLevel > 0) return;
-    const left = leftControlsRef.current;
-    if (!left) return;
-    fullLeftWidthRef.current = left.scrollWidth;
-    updateFooterCompact();
+    if (shellMode) return;
+    widthAtLevel.current = [];
+    levelRef.current = 0;
+    setCompactLevel(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shellMode, compactLevel, ...deps, updateFooterCompact]);
+  }, [shellMode, ...deps]);
 
-  // ResizeObserver for responsive compact
   useEffect(() => {
-    updateFooterCompact();
     const footer = footerRef.current;
-    const left = leftControlsRef.current;
-    const right = rightControlsRef.current;
-    if (!footer || !left || !right) return;
-    const observer = new ResizeObserver(updateFooterCompact);
+    if (!footer) return;
+
+    let raf = 0;
+    const settle = () => {
+      const prev = levelRef.current;
+      updateFooterCompact();
+      if (levelRef.current !== prev && levelRef.current < COMPACT_LEVEL_MAX) {
+        raf = requestAnimationFrame(settle);
+      }
+    };
+
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(settle);
+    };
+
+    onResize();
+    const observer = new ResizeObserver(onResize);
     observer.observe(footer);
-    observer.observe(left);
-    observer.observe(right);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(raf);
+    };
   }, [updateFooterCompact]);
 
   return { compactLevel, footerRef, leftControlsRef, rightControlsRef };
