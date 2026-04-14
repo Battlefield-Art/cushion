@@ -5,7 +5,7 @@ import type { ExtensionContext } from '@cushion/extension-api';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 
 if (typeof window !== 'undefined') {
-  (window as any).EXCALIDRAW_ASSET_PATH = `${import.meta.env.BASE_URL}excalidraw-assets/`;
+  (window as any).EXCALIDRAW_ASSET_PATH = new URL('./excalidraw-assets/', document.baseURI).href;
 }
 
 const DEFAULT_SCENE = {

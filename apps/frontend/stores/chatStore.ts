@@ -40,6 +40,7 @@ import {
   unwrap,
   normalizeBaseUrl,
   isValidBaseUrl,
+  addRecentModel,
 } from './chat-store-utils';
 
 export type { PromptAttachment, PromptInputPayload, SelectedModel } from './chat-store-utils';
@@ -102,12 +103,14 @@ export const useChatStore = create<ChatState & ChatActions>()(
               [getModelVisibilityKey(model)]: 'show' as ModelVisibility,
             }
           : state.modelVisibility;
+        const nextRecent = model ? addRecentModel(state.recentModels, model) : state.recentModels;
         if (!directory) {
           const resolvedVariant = resolveModelVariant(state.providers, model, state.selectedVariant);
           return {
             selectedModel: model,
             selectedVariant: resolvedVariant,
             modelVisibility: nextVisibility,
+            recentModels: nextRecent,
           };
         }
         const resolvedVariant = resolveModelVariant(
@@ -127,6 +130,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
             [directory]: resolvedVariant,
           },
           modelVisibility: nextVisibility,
+          recentModels: nextRecent,
         };
       });
     },
@@ -353,7 +357,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
       }),
       {
         name: 'cushion-chat',
-        version: 8,
+        version: 9,
         partialize: (state) => ({
           baseUrl: state.baseUrl,
           promptBySession: state.promptBySession,
@@ -367,13 +371,18 @@ export const useChatStore = create<ChatState & ChatActions>()(
           includeCurrentFile: state.includeCurrentFile,
           reviewMode: state.reviewMode,
           disabledSkills: state.disabledSkills,
+          recentModels: state.recentModels,
         }),
         migrate: (state, version) => {
           if (!state || typeof state !== 'object') return state as ChatState;
-          if (version >= 8) return state as ChatState;
+          if (version >= 9) return state as ChatState;
+          // v8 → v9: add recentModels
+          if (version === 8) {
+            return { ...(state as Record<string, unknown>), recentModels: [] } as unknown as ChatState;
+          }
           // v7 → v8: add disabledSkills
           if (version === 7) {
-            return { ...(state as Record<string, unknown>), disabledSkills: [] } as unknown as ChatState;
+            return { ...(state as Record<string, unknown>), disabledSkills: [], recentModels: [] } as unknown as ChatState;
           }
           // v6 → v7: rename autoAccept → reviewMode (inverted)
           if (version === 6) {

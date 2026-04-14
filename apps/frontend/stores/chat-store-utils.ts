@@ -119,6 +119,8 @@ export type ChatState = {
   allSkillNames: string[];
   /** Skill names that the user has disabled */
   disabledSkills: string[];
+  /** Most-recently-selected models, newest first, capped at RECENT_MODELS_LIMIT */
+  recentModels: SelectedModel[];
 };
 
 export type ChatActions = {
@@ -171,6 +173,16 @@ export type ChatStoreSet = (
 export const DEFAULT_MESSAGE_LIMIT = 200;
 const WORKSPACE_SESSION_KEY = '__workspace__';
 export const MAX_PROMPT_SESSIONS = 20;
+export const RECENT_MODELS_LIMIT = 5;
+
+export function addRecentModel(list: SelectedModel[], model: SelectedModel): SelectedModel[] {
+  const filtered = list.filter(
+    (item) => !(item.providerID === model.providerID && item.modelID === model.modelID)
+  );
+  filtered.unshift({ providerID: model.providerID, modelID: model.modelID });
+  if (filtered.length > RECENT_MODELS_LIMIT) filtered.length = RECENT_MODELS_LIMIT;
+  return filtered;
+}
 
 // Initial state
 
@@ -224,6 +236,7 @@ export const initialState: ChatState = {
   pendingInterrupt: null,
   allSkillNames: [],
   disabledSkills: [],
+  recentModels: [],
 };
 
 // List utilities

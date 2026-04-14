@@ -87,29 +87,31 @@ export function EditorTabRow({
       </div>
 
       <div className="min-w-0 flex-1 flex items-end overflow-hidden">
-        {panes.map((pane, i) => (
-          <div
-            key={pane.id}
-            className="min-w-0"
-            style={{ flex: hasSizes ? paneSizes[i] : 1 }}
-          >
-            <PaneTabBar paneId={pane.id} tabs={pane.tabs} />
-          </div>
-        ))}
+        {panes.map((pane, i) => {
+          const isLast = i === panes.length - 1;
+          return (
+            <div
+              key={pane.id}
+              className="min-w-0"
+              style={{ flex: hasSizes ? paneSizes[i] : 1 }}
+            >
+              <PaneTabBar
+                paneId={pane.id}
+                tabs={pane.tabs}
+                trailingReserve={isLast && !rightPanelOpen ? TRAILING_RESERVE : 0}
+              />
+            </div>
+          );
+        })}
       </div>
 
       <div
-        className={cn(
-          'flex-shrink-0 self-stretch transition-[margin] duration-300 ease-in-out',
-          rightPanelOpen && 'border-l border-border'
-        )}
+        className="flex-shrink-0 self-stretch transition-[margin] duration-300 ease-in-out"
         style={{
-          width: Math.max(0, (rightPanelWidth ?? 0) - TRAILING_RESERVE),
-          marginRight: rightPanelOpen ? 0 : -Math.max(0, (rightPanelWidth ?? 0) - TRAILING_RESERVE),
+          width: rightPanelWidth ?? 0,
+          marginRight: rightPanelOpen ? 0 : -(rightPanelWidth ?? 0),
         }}
       />
-
-      <div className="flex-shrink-0" style={{ width: TRAILING_RESERVE }} />
 
       {onToggleRightPanel && (
         <button

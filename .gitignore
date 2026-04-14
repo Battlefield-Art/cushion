@@ -2,7 +2,7 @@
 node_modules/
 
 # Reference implementations (cloned for research)
-inspo/
+# inspo/
 docs/
 notes/
 

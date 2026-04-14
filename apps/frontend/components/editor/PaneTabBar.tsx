@@ -15,6 +15,7 @@ import { noDragStyle } from './editor-path';
 interface PaneTabBarProps {
   paneId: string;
   tabs: TabState[];
+  trailingReserve?: number;
 }
 
 function getFileName(filePath: string): string {
@@ -23,7 +24,7 @@ function getFileName(filePath: string): string {
   return name.endsWith('.md') ? name.slice(0, -3) : name;
 }
 
-export function PaneTabBar({ paneId, tabs }: PaneTabBarProps) {
+export function PaneTabBar({ paneId, tabs, trailingReserve = 0 }: PaneTabBarProps) {
   const openFiles = useWorkspaceStore((s) => s.openFiles);
   const convertPreviewTab = useWorkspaceStore((s) => s.convertPreviewTab);
   const setActiveTab = useWorkspaceStore((s) => s.setActiveTab);
@@ -81,7 +82,7 @@ export function PaneTabBar({ paneId, tabs }: PaneTabBarProps) {
   }, []);
 
   return (
-    <div className="flex h-10 items-end px-2 min-w-0">
+    <div className="flex h-10 items-end px-2 min-w-0" style={{ paddingRight: trailingReserve || undefined }}>
       {tabs.map((tab, index) => {
         const isActive = tab.isActive;
         const previousTab = index > 0 ? tabs[index - 1] : null;

@@ -41,6 +41,7 @@ export function ModelSelector({ disabled = false, compactLevel }: ModelSelectorP
   }, [isOpen]);
 
   const isModelVisible = useChatStore((s) => s.isModelVisible);
+  const recentModels = useChatStore((s) => s.recentModels);
 
   const selectedProviderId = selectedModel?.providerID ?? '';
   const provider = providers.find((item) => item.id === selectedProviderId);
@@ -83,16 +84,28 @@ export function ModelSelector({ disabled = false, compactLevel }: ModelSelectorP
     return filtered.sort(createModelSorter(POPULAR_PROVIDER_IDS));
   }, [providers, searchQuery, isModelVisible]);
 
+  const isSearching = searchQuery.trim().length > 0;
+
+  const recentEntries = useMemo(() => {
+    if (isSearching) return [];
+    const byKey = new Map(allModels.map((m) => [`${m.providerID}:${m.modelID}`, m]));
+    return recentModels
+      .map((r) => byKey.get(`${r.providerID}:${r.modelID}`))
+      .filter((m): m is (typeof allModels)[number] => Boolean(m));
+  }, [recentModels, allModels, isSearching]);
+
   const groupedModels = useMemo(() => {
+    const recentKeys = new Set(recentEntries.map((m) => `${m.providerID}:${m.modelID}`));
     const groups: Record<string, typeof allModels> = {};
     for (const model of allModels) {
+      if (recentKeys.has(`${model.providerID}:${model.modelID}`)) continue;
       if (!groups[model.providerName]) {
         groups[model.providerName] = [];
       }
       groups[model.providerName].push(model);
     }
     return groups;
-  }, [allModels]);
+  }, [allModels, recentEntries]);
 
   const handleSelect = (providerID: string, modelID: string) => {
     setSelectedModel({ providerID, modelID });
@@ -213,6 +226,32 @@ export function ModelSelector({ disabled = false, compactLevel }: ModelSelectorP
             </button>
           </div>
           <div className="flex-1 overflow-y-auto no-scrollbar">
+            {recentEntries.length > 0 && (
+              <div key="__recent__">
+                <div className="sticky top-0 z-10 relative px-2 py-2 text-[13px] font-medium text-[var(--foreground-subtle)] bg-[var(--surface-elevated)] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-gradient-to-b after:from-[var(--surface-elevated)] after:to-transparent">
+                  Recent
+                </div>
+                <div className="space-y-0.5 pb-1">
+                  {recentEntries.map((model) => {
+                    const isSelected = selectedModel?.providerID === model.providerID && selectedModel?.modelID === model.modelID;
+                    return (
+                      <button
+                        key={`recent:${model.providerID}:${model.modelID}`}
+                        type="button"
+                        onClick={() => handleSelect(model.providerID, model.modelID)}
+                        className="w-full rounded-md px-2 py-1.5 text-left text-[14px] font-normal text-foreground hover:bg-[var(--overlay-10)] focus-visible:bg-[var(--overlay-10)] focus-visible:outline-none transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="truncate flex-1">{model.modelName}</div>
+                          <div className="text-[12px] text-muted-foreground shrink-0">{model.providerName}</div>
+                          {isSelected && <Check className="size-3.5 text-foreground shrink-0" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {Object.entries(groupedModels).map(([providerName, models]) => (
               <div key={providerName}>
                 <div className="sticky top-0 z-10 relative px-2 py-2 text-[13px] font-medium text-[var(--foreground-subtle)] bg-[var(--surface-elevated)] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-gradient-to-b after:from-[var(--surface-elevated)] after:to-transparent">
