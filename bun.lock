@@ -12,7 +12,7 @@
     },
     "apps/electron": {
       "name": "electron-app",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@cushion/extension-api": "workspace:*",
         "@cushion/types": "workspace:*",
